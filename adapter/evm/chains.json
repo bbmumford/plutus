@@ -1,0 +1,52 @@
+{
+  "chains": [
+    {
+      "id": 137,
+      "name": "polygon",
+      "rpcUrl": "https://polygon-rpc.com",
+      "nativeSymbol": "MATIC",
+      "gasModel": "eip1559",
+      "blockTimeMs": 2000,
+      "explorerUrl": "https://polygonscan.com",
+      "currencies": [
+        {"address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", "symbol": "USDC", "decimals": 6, "isERC20": true}
+      ]
+    },
+    {
+      "id": 1,
+      "name": "ethereum",
+      "rpcUrl": "https://eth.drpc.org",
+      "nativeSymbol": "ETH",
+      "gasModel": "eip1559",
+      "blockTimeMs": 12000,
+      "explorerUrl": "https://etherscan.io",
+      "currencies": [
+        {"address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "symbol": "USDC", "decimals": 6, "isERC20": true}
+      ]
+    },
+    {
+      "id": 42161,
+      "name": "arbitrum",
+      "rpcUrl": "https://arb1.arbitrum.io/rpc",
+      "nativeSymbol": "ETH",
+      "gasModel": "eip1559",
+      "blockTimeMs": 1000,
+      "explorerUrl": "https://arbiscan.io",
+      "currencies": [
+        {"address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "symbol": "USDC", "decimals": 6, "isERC20": true}
+      ]
+    },
+    {
+      "id": 56,
+      "name": "bsc",
+      "rpcUrl": "https://bsc-dataseed.binance.org",
+      "nativeSymbol": "BNB",
+      "gasModel": "legacy",
+      "blockTimeMs": 3000,
+      "explorerUrl": "https://bscscan.com",
+      "currencies": [
+        {"address": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", "symbol": "BUSD", "decimals": 18, "isERC20": true}
+      ]
+    }
+  ]
+}

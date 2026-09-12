@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package plutus;
+
+option go_package = "github.com/bbmumford/plutus/proto/plutus";
+
+// Signature wraps a cryptographic signature with metadata about the algorithm used.
+message Signature {
+  bytes public_key = 1;      // signer's public key
+  bytes signature = 2;       // raw signature bytes
+  SignatureAlgorithm algorithm = 3;
+}
+
+enum SignatureAlgorithm {
+  SIGNATURE_ALGORITHM_UNSPECIFIED = 0;
+  SIGNATURE_ALGORITHM_ED25519 = 1;
+  SIGNATURE_ALGORITHM_SECP256K1 = 2;
+}
+
+// ChainRef identifies a specific blockchain network.
+message ChainRef {
+  string chain_id = 1;       // e.g., "polygon", "ethereum", "bitcoin"
+  uint64 chain_num = 2;      // EIP-155 chain number (EVM only)
+  string network = 3;        // "mainnet", "testnet", "devnet"
+}
+
+// Currency identifies a specific currency on a specific chain.
+message Currency {
+  string symbol = 1;         // e.g., "USDC", "ETH", "BTC"
+  string name = 2;           // e.g., "USD Coin"
+  uint32 decimals = 3;       // token decimals (6 for USDC, 18 for ETH, 8 for BTC)
+  string contract_address = 4; // token contract address (empty for native coins)
+  ChainRef chain = 5;
+}
+
+// Amount represents a precise monetary amount using a string-encoded integer
+// in the smallest denomination (wei, satoshi, micro-unit, etc.).
+message Amount {
+  string value = 1;          // big.Int string representation
+  Currency currency = 2;
+}
+
+// ContentAddress is a content-addressable hash reference.
+message ContentAddress {
+  bytes hash = 1;            // SHA256 hash
+  string algorithm = 2;      // "sha256" (default), "keccak256"
+  uint64 size = 3;           // size of the referenced content in bytes
+}
+
+// Timestamp is a UTC timestamp with nanosecond precision.
+message Timestamp {
+  int64 seconds = 1;         // seconds since Unix epoch
+  int32 nanos = 2;           // nanosecond offset within the second
+}

@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package plutus;
+
+option go_package = "github.com/bbmumford/plutus/proto/plutus";
+
+import "proto/plutus/common.proto";
+
+// AdapterDescriptor is the signed metadata blob distributed with each adapter.
+// Wallets verify the signature against the PRC maintainer public key hash
+// before loading an adapter.
+message AdapterDescriptor {
+  string chain_id = 1;
+  string currency = 2;
+  string symbol = 3;
+  string version = 4;
+  string prc_address = 5;
+  bytes adapter_hash = 6;           // SHA256 of the adapter binary
+  bytes signer_pub_key = 7;         // Ed25519 public key of the signer
+  bytes signature = 8;              // Ed25519 signature over fields 1-6
+}
+
+// KeyRotationCert certifies that the maintainer has rotated their signing key.
+// The old key signs the new key, creating a verifiable chain of authority.
+message KeyRotationCert {
+  bytes old_pub_key = 1;            // previous Ed25519 public key
+  bytes new_pub_key = 2;            // new Ed25519 public key
+  Timestamp effective_at = 3;       // when the new key becomes active
+  Timestamp grace_until = 4;        // old key remains valid until this time
+  bytes old_key_signature = 5;      // old key signs (new_pub_key || effective_at || grace_until)
+  bytes new_key_signature = 6;      // new key signs (old_pub_key || effective_at) for bidirectional proof
+  string reason = 7;                // human-readable rotation reason
+}
+
+// PayoutDescriptor configures where maintainer fees are sent on each chain.
+message PayoutDescriptor {
+  string chain_id = 1;
+  string payout_address = 2;        // chain-specific address receiving fees
+  uint32 maintainer_fee_bps = 3;    // fee in basis points (max 500)
+  uint32 witness_bps = 4;           // witness fee in basis points (max 100)
+  bytes maintainer_pub_key_hash = 5; // SHA256(maintainer Ed25519 public key)
+  string prc_address = 6;           // deployed PRC contract address on this chain
+}

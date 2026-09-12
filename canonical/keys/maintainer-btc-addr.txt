@@ -1,0 +1,4 @@
+# REPLACE: paste maintainer BTC P2WPKH bech32 address (bc1...)
+# Lines starting with '#' and blank lines are ignored.
+# The address on the first non-comment line is used as canonical.MaintainerBTCAddress.
+# If empty, the BTC adapter will refuse to load at runtime (safe default).

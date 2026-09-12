@@ -1,0 +1,70 @@
+# Plutus Bitcoin Escrow Script — P2WSH 2-of-3 Multisig with CLTV Timeout
+#
+# This script implements a non-custodial escrow for Bitcoin using
+# Pay-to-Witness-Script-Hash (P2WSH) with a 2-of-3 multisig and
+# a CheckLockTimeVerify (CLTV) timeout clause.
+#
+# Participants:
+#   - Buyer: funds the escrow
+#   - Seller: receives payment on release
+#   - Arbitrator: resolves disputes
+#
+# Spending paths:
+#
+#   Path 1 — Normal (2-of-3 multisig):
+#     Any two of {buyer, seller, arbitrator} can sign to spend.
+#     Used for: release (buyer+seller), dispute resolution (buyer+arb or seller+arb).
+#
+#   Path 2 — Timeout refund (buyer only):
+#     After TIMEOUT_BLOCKS, the buyer can unilaterally reclaim funds.
+#     Used for: buyer protection when seller disappears.
+#
+# Script (Bitcoin Script assembly):
+#
+#   OP_IF
+#       # Path 1: 2-of-3 multisig
+#       OP_2
+#       <buyer_pubkey>
+#       <seller_pubkey>
+#       <arbitrator_pubkey>
+#       OP_3
+#       OP_CHECKMULTISIG
+#   OP_ELSE
+#       # Path 2: timeout refund
+#       <timeout_blocks>
+#       OP_CHECKLOCKTIMEVERIFY
+#       OP_DROP
+#       <buyer_pubkey>
+#       OP_CHECKSIG
+#   OP_ENDIF
+#
+# Witness stack for Path 1 (multisig):
+#   <empty>  <sig1>  <sig2>  <TRUE>  <script>
+#
+# Witness stack for Path 2 (timeout):
+#   <buyer_sig>  <FALSE>  <script>
+#
+# P2WSH address construction:
+#   witness_program = SHA256(script)
+#   scriptPubKey = OP_0 <32-byte witness_program>
+#   address = bech32_encode("bc", 0, witness_program)  # mainnet
+#   address = bech32_encode("tb", 0, witness_program)  # testnet
+#
+# Security properties:
+#   - Non-custodial: funds held by script, not any party
+#   - No single party can steal: requires 2 of 3 signatures
+#   - Timeout protection: buyer can recover after CLTV expiry
+#   - SegWit: P2WSH for lower fees and malleability resistance
+#   - Compressed keys: all pubkeys must be 33-byte compressed format
+#
+# Fee enforcement:
+#   Unlike EVM escrows, Bitcoin scripts cannot enforce protocol fees directly.
+#   Fee enforcement for BTC escrows is handled at the wallet layer:
+#     1. The wallet constructs the spending transaction
+#     2. The wallet adds a maintainer fee output
+#     3. The wallet's fee-enforcing signer verifies the fee output before signing
+#     4. Witnesses attest the settlement transaction includes the correct fee
+#
+# Integration with Go package:
+#   See adapter/btc/escrow_script.go for the Go implementation that compiles
+#   this script structure with concrete pubkeys and timeout values.

@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package plutus;
+
+option go_package = "github.com/bbmumford/plutus/proto/plutus";
+
+import "proto/plutus/common.proto";
+
+// EscrowPolicy defines the terms of an escrow before it is created on-chain.
+message EscrowPolicy {
+  string buyer_address = 1;
+  string seller_address = 2;
+  Amount amount = 3;
+  uint64 timeout_seconds = 4;       // escrow timeout duration
+  string arbitrator_address = 5;    // optional
+  string prc_address = 6;           // PRC contract address on this chain
+  repeated bytes witness_hashes = 7; // attestation hashes from witness quorum
+  bytes receipt_hash = 8;           // service receipt Merkle root (if applicable)
+}
+
+// EscrowState represents the on-chain state of an escrow at a point in time.
+message EscrowState {
+  string address = 1;               // escrow contract/UTXO address
+  string buyer = 2;
+  string seller = 3;
+  Amount amount = 4;
+  EscrowStatus status = 5;
+  string arbitrator_address = 6;
+  uint64 created_at = 7;            // block timestamp
+  uint64 timeout_at = 8;            // block timestamp
+  string prc_address = 9;
+  ChainRef chain = 10;
+}
+
+enum EscrowStatus {
+  ESCROW_STATUS_UNSPECIFIED = 0;
+  ESCROW_STATUS_PENDING = 1;        // created, awaiting funding
+  ESCROW_STATUS_FUNDED = 2;         // buyer has funded
+  ESCROW_STATUS_RELEASED = 3;       // seller paid, escrow complete
+  ESCROW_STATUS_DISPUTED = 4;       // dispute flag raised
+  ESCROW_STATUS_SETTLED = 5;        // arbitrator ruled, funds distributed
+  ESCROW_STATUS_REFUNDED = 6;       // timeout reached, buyer refunded
+  ESCROW_STATUS_CANCELLED = 7;      // cancelled before funding
+}
+
+// SettlementRequest is sent by a party to initiate escrow settlement.
+message SettlementRequest {
+  string escrow_address = 1;
+  ChainRef chain = 2;
+  FeeBreakdown fees = 3;
+  Signature requester_signature = 4;
+  bytes receipt_hash = 5;           // optional service receipt Merkle root
+  repeated bytes witness_hashes = 6; // witness attestation hashes
+}
+
+// FeeBreakdown contains the deterministic fee calculation result.
+message FeeBreakdown {
+  string maintainer_fee = 1;        // big.Int as string
+  string service_provider_fee = 2;
+  string arbitrator_fee = 3;
+  string witness_fee = 4;
+  string seller_proceeds = 5;
+  string total = 6;
+}
+
+// DisputeRequest flags an escrow for arbitration.
+message DisputeRequest {
+  string escrow_address = 1;
+  ChainRef chain = 2;
+  string reason = 3;
+  ContentAddress evidence = 4;      // hash of off-chain evidence bundle
+  string disputer_address = 5;
+  Signature disputer_signature = 6;
+}
+
+// Ruling represents an arbitrator's ruling on a disputed escrow.
+message Ruling {
+  string escrow_address = 1;
+  uint32 buyer_percent = 2;         // 0-100
+  uint32 seller_percent = 3;        // 0-100
+  string arbitrator_address = 4;
+  Signature arbitrator_signature = 5;
+  ContentAddress reason = 6;        // hash of the reasoning document
+}

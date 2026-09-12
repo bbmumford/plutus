@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package plutus;
+
+option go_package = "github.com/bbmumford/plutus/proto/plutus";
+
+import "proto/plutus/common.proto";
+
+// ServiceReceipt is a signed proof that a service was delivered.
+// The provider signs the receipt; the buyer confirms by referencing
+// the receipt hash in the escrow release.
+message ServiceReceipt {
+  bytes provider_pub_key = 1;       // Ed25519 public key of the service provider
+  bytes buyer_nonce = 2;            // nonce provided by buyer to prove request
+  string service_type = 3;          // type of service rendered (e.g. "vdi-session", "print-job")
+  bytes content_hash = 4;           // SHA-256 of service output/proof
+  Timestamp timestamp = 5;          // when the service was rendered
+  bytes signature = 6;              // Ed25519 signature over all fields except signature
+}
+
+// ReceiptBundle aggregates multiple service receipts into a Merkle tree.
+// The root hash is referenced in the escrow release for efficient verification.
+message ReceiptBundle {
+  repeated ServiceReceipt receipts = 1;
+  bytes merkle_root = 2;            // SHA256 Merkle root of receipt hashes
+  uint32 count = 3;                 // number of receipts in the bundle
+  Signature bundle_signature = 4;   // seller signs the Merkle root
+}
+
+// BuyerNonce is an anti-replay token issued by the buyer.
+// Each nonce can only be used once, preventing receipt replay attacks.
+message BuyerNonce {
+  bytes nonce = 1;                  // random 32 bytes
+  string buyer_address = 2;
+  Timestamp issued_at = 3;
+  Timestamp expires_at = 4;
+  Signature buyer_signature = 5;    // buyer signs (nonce || issued_at || expires_at)
+}
