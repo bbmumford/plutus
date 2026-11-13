@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/bbmumford/plutus/canonical"
+	"github.com/bbmumford/plutus/internal/gossipstate"
 
 	ledger "github.com/bbmumford/ledger"
 	"github.com/bbmumford/ledger/cache"
@@ -539,29 +540,17 @@ func (r *WitnessRegistry) Count() int {
 type witnessStateStore struct {
 	cache    *cache.DirectoryCache
 	registry *WitnessRegistry
-
-	mu        sync.Mutex
-	watermark uint64
 }
 
-// Fingerprint returns a cache fingerprint for delta-sync optimisation.
-func (s *witnessStateStore) Fingerprint(_ string) uint64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.watermark
+// Fingerprint summarises every witness record for whisper's G2 digest.
+func (s *witnessStateStore) Fingerprint() uint64 {
+	return gossipstate.Fingerprint(s.Snapshot())
 }
 
-// DeltaSince returns witness records changed since the given watermark.
-// For simplicity, if the caller is behind we return all current entries.
-func (s *witnessStateStore) DeltaSince(_ string, since uint64) ([][]byte, uint64, error) {
-	s.mu.Lock()
-	current := s.watermark
-	s.mu.Unlock()
-
-	if since >= current {
-		return nil, current, nil
-	}
-
+// Snapshot returns every witness registration in its wire form; a
+// registration that fails to marshal is left out so it does not block
+// the rest.
+func (s *witnessStateStore) Snapshot() [][]byte {
 	s.registry.mu.RLock()
 	defer s.registry.mu.RUnlock()
 
@@ -582,11 +571,18 @@ func (s *witnessStateStore) DeltaSince(_ string, since uint64) ([][]byte, uint64
 		}
 		records = append(records, data)
 	}
-	return records, current, nil
+	return records
+}
+
+// Delta returns the full snapshot: a registration's RegisteredAt is
+// stamped by its author, not by the local Apply, so filtering on it would
+// drop a registration that reached this node after the peer's watermark.
+func (s *witnessStateStore) Delta(_ time.Time) [][]byte {
+	return s.Snapshot()
 }
 
 // Apply stores an incoming witness record, merging by timestamp.
-func (s *witnessStateStore) Apply(_ string, data []byte) error {
+func (s *witnessStateStore) Apply(data []byte) error {
 	var wire witnessRegistrationWire
 	if err := json.Unmarshal(data, &wire); err != nil {
 		return fmt.Errorf("witness: unmarshal state record: %w", err)
@@ -614,10 +610,6 @@ func (s *witnessStateStore) Apply(_ string, data []byte) error {
 		s.registry.entries[key] = reg
 	}
 	s.registry.mu.Unlock()
-
-	s.mu.Lock()
-	s.watermark++
-	s.mu.Unlock()
 
 	return nil
 }

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bbmumford/plutus/canonical"
+	"github.com/bbmumford/plutus/internal/gossipstate"
 
 	"github.com/bbmumford/ledger/cache"
 	"github.com/bbmumford/whisper"
@@ -181,7 +182,7 @@ func (r *ArbitratorRegistry) Register(profile ArbitratorProfile) error {
 
 	cfg, ok := r.engine.Registry().Get(topicArbitrators)
 	if ok && cfg.Store != nil {
-		if err := cfg.Store.Apply(topicArbitrators, payload); err != nil {
+		if err := cfg.Store.Apply(payload); err != nil {
 			return fmt.Errorf("arbitrator: apply to state store: %w", err)
 		}
 	}
@@ -219,7 +220,7 @@ func (r *ArbitratorRegistry) Unregister(pubkey ed25519.PublicKey) error {
 
 	cfg, ok := r.engine.Registry().Get(topicArbitrators)
 	if ok && cfg.Store != nil {
-		if err := cfg.Store.Apply(topicArbitrators, payload); err != nil {
+		if err := cfg.Store.Apply(payload); err != nil {
 			return fmt.Errorf("arbitrator: apply tombstone to state store: %w", err)
 		}
 	}
@@ -340,29 +341,16 @@ func (r *ArbitratorRegistry) OnBroadcast(topic string, from string, payload []by
 type arbitratorStateStore struct {
 	cache    *cache.DirectoryCache
 	registry *ArbitratorRegistry
-
-	mu        sync.Mutex
-	watermark uint64
 }
 
-// Fingerprint returns a cache fingerprint for delta-sync optimisation.
-func (s *arbitratorStateStore) Fingerprint(_ string) uint64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.watermark
+// Fingerprint summarises every arbitrator record for whisper's G2 digest.
+func (s *arbitratorStateStore) Fingerprint() uint64 {
+	return gossipstate.Fingerprint(s.Snapshot())
 }
 
-// DeltaSince returns arbitrator records changed since the given watermark.
-// For simplicity, if the caller is behind we return all current entries.
-func (s *arbitratorStateStore) DeltaSince(_ string, since uint64) ([][]byte, uint64, error) {
-	s.mu.Lock()
-	current := s.watermark
-	s.mu.Unlock()
-
-	if since >= current {
-		return nil, current, nil
-	}
-
+// Snapshot returns every arbitrator profile as a JSON record; a profile
+// that fails to marshal is left out so it does not block the rest.
+func (s *arbitratorStateStore) Snapshot() [][]byte {
 	s.registry.mu.RLock()
 	defer s.registry.mu.RUnlock()
 
@@ -374,11 +362,18 @@ func (s *arbitratorStateStore) DeltaSince(_ string, since uint64) ([][]byte, uin
 		}
 		records = append(records, data)
 	}
-	return records, current, nil
+	return records
+}
+
+// Delta returns the full snapshot: a profile's RegisteredAt is stamped by
+// its author, not by the local Apply, so filtering on it would drop a
+// profile that reached this node after the peer's watermark.
+func (s *arbitratorStateStore) Delta(_ time.Time) [][]byte {
+	return s.Snapshot()
 }
 
 // Apply stores an incoming arbitrator record, merging by timestamp.
-func (s *arbitratorStateStore) Apply(_ string, data []byte) error {
+func (s *arbitratorStateStore) Apply(data []byte) error {
 	var profile ArbitratorProfile
 	if err := json.Unmarshal(data, &profile); err != nil {
 		return fmt.Errorf("arbitrator: unmarshal state record: %w", err)
@@ -396,10 +391,6 @@ func (s *arbitratorStateStore) Apply(_ string, data []byte) error {
 		s.registry.entries[key] = &profile
 	}
 	s.registry.mu.Unlock()
-
-	s.mu.Lock()
-	s.watermark++
-	s.mu.Unlock()
 
 	return nil
 }

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bbmumford/plutus/canonical"
+	"github.com/bbmumford/plutus/internal/gossipstate"
 
 	"github.com/bbmumford/ledger/cache"
 	"github.com/bbmumford/whisper"
@@ -190,7 +191,7 @@ func (s *ReputationService) Record(rec ReputationRecord) error {
 	topic := topicForType(rec.Type)
 	cfg, ok := s.engine.Registry().Get(topic)
 	if ok && cfg.Store != nil {
-		if err := cfg.Store.Apply(topic, payload); err != nil {
+		if err := cfg.Store.Apply(payload); err != nil {
 			return fmt.Errorf("reputation: apply to state store: %w", err)
 		}
 	}
@@ -374,30 +375,17 @@ func topicForType(t RepType) string {
 type reputationStateStore struct {
 	service *ReputationService
 	topic   string
-
-	mu        sync.Mutex
-	watermark uint64
 }
 
-// Fingerprint returns a cache fingerprint for delta-sync optimisation.
-func (s *reputationStateStore) Fingerprint(_ string) uint64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.watermark
+// Fingerprint summarises this topic's records for whisper's G2 digest.
+func (s *reputationStateStore) Fingerprint() uint64 {
+	return gossipstate.Fingerprint(s.Snapshot())
 }
 
-// DeltaSince returns reputation records changed since the given watermark.
-// For simplicity, if the caller is behind we return all current records
-// that match this store's topic (trades or reviews).
-func (s *reputationStateStore) DeltaSince(_ string, since uint64) ([][]byte, uint64, error) {
-	s.mu.Lock()
-	current := s.watermark
-	s.mu.Unlock()
-
-	if since >= current {
-		return nil, current, nil
-	}
-
+// Snapshot returns every record whose type routes to this store's topic
+// (trades or reviews); a record that fails to marshal is left out so it
+// does not block the rest.
+func (s *reputationStateStore) Snapshot() [][]byte {
 	s.service.mu.RLock()
 	defer s.service.mu.RUnlock()
 
@@ -415,11 +403,18 @@ func (s *reputationStateStore) DeltaSince(_ string, since uint64) ([][]byte, uin
 			records = append(records, data)
 		}
 	}
-	return records, current, nil
+	return records
+}
+
+// Delta returns the full snapshot: a record's Timestamp is stamped by its
+// recorder, not by the local Apply, so filtering on it would drop a record
+// that reached this node after the peer's watermark.
+func (s *reputationStateStore) Delta(_ time.Time) [][]byte {
+	return s.Snapshot()
 }
 
 // Apply stores an incoming reputation record, deduplicating by TxHash.
-func (s *reputationStateStore) Apply(_ string, data []byte) error {
+func (s *reputationStateStore) Apply(data []byte) error {
 	var rec ReputationRecord
 	if err := json.Unmarshal(data, &rec); err != nil {
 		return fmt.Errorf("reputation: unmarshal state record: %w", err)
@@ -444,10 +439,6 @@ func (s *reputationStateStore) Apply(_ string, data []byte) error {
 	}
 	s.service.records[key] = append(s.service.records[key], &rec)
 	s.service.mu.Unlock()
-
-	s.mu.Lock()
-	s.watermark++
-	s.mu.Unlock()
 
 	return nil
 }

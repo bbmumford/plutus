@@ -393,37 +393,70 @@ func TestReputationStateStore_DeltaSync(t *testing.T) {
 	}
 
 	// Reputation service registers the trade-topic state store via its
-	// engine; fetch it back from the registry to test DeltaSince/Apply.
+	// engine; fetch it back from the registry to test Snapshot/Delta/Apply.
 	cfg, ok := svc.engine.Registry().Get(topicRepTrades)
 	if !ok || cfg.Store == nil {
 		t.Fatal("expected trade-topic state store")
 	}
-	// Apply a fresh incoming record via the Apply path so the watermark advances.
-	// Can't reuse rec because it's already stored (Record deduped).
+	before := cfg.Store.Fingerprint()
+	if before == 0 {
+		t.Fatal("a store holding a record must report a non-zero fingerprint")
+	}
+	// Apply a fresh incoming record; rec is already stored, so a new one
+	// is needed for the fingerprint to move.
 	rec2 := signed(t, subject, recorder, TradeComplete, 1, "app", "0xds-applied")
 	data, _ := json.Marshal(rec2)
-	if err := cfg.Store.Apply(topicRepTrades, data); err != nil {
+	if err := cfg.Store.Apply(data); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	currentFP := cfg.Store.Fingerprint("peer-A")
-	if currentFP == 0 {
-		t.Fatal("expected watermark to advance after Apply")
+	if cfg.Store.Fingerprint() == before {
+		t.Fatal("Apply of a new record must change the fingerprint")
 	}
-	// DeltaSince(peer, 0) should return records for a behind caller.
-	records, current, err := cfg.Store.DeltaSince("peer-A", 0)
-	if err != nil {
-		t.Fatalf("DeltaSince: %v", err)
+	snap := cfg.Store.Snapshot()
+	if len(snap) == 0 {
+		t.Fatal("expected the snapshot to carry the stored records")
 	}
-	if current != currentFP {
-		t.Errorf("current watermark: got %d, want %d", current, currentFP)
+	// Delta returns the snapshot for any watermark, so a peer behind on a
+	// record whose recorder stamped it earlier still receives it.
+	if got := cfg.Store.Delta(time.Now().Add(time.Hour)); len(got) != len(snap) {
+		t.Errorf("Delta after a future watermark: got %d records, want %d", len(got), len(snap))
 	}
-	if len(records) == 0 {
-		t.Error("expected at least one delta record for behind caller")
+	if got := cfg.Store.Delta(time.Time{}); len(got) != len(snap) {
+		t.Errorf("Delta from the zero time: got %d records, want %d", len(got), len(snap))
 	}
-	// Calling DeltaSince with since>=current yields nothing.
-	records2, _, _ := cfg.Store.DeltaSince("peer-A", current)
-	if len(records2) != 0 {
-		t.Error("since>=current should return no records")
+
+	// A second node holding the same records reports the same fingerprint,
+	// which is what lets whisper's G2 digest skip the exchange.
+	peer := newIntegrationService(t)
+	peerCfg, _ := peer.engine.Registry().Get(topicRepTrades)
+	for _, r := range snap {
+		if err := peerCfg.Store.Apply(r); err != nil {
+			t.Fatalf("peer Apply: %v", err)
+		}
+	}
+	if peerCfg.Store.Fingerprint() != cfg.Store.Fingerprint() {
+		t.Error("two nodes holding the same records must report the same fingerprint")
+	}
+}
+
+// Two nodes that each applied one different record must not report the
+// same fingerprint, or whisper's G2 digest would skip the exchange that
+// brings them together.
+func TestReputationStateStore_FingerprintDiffersForDifferentRecords(t *testing.T) {
+	t.Parallel()
+	subject := newKeyPair(t)
+	recorder := newKeyPair(t)
+	fingerprintAfter := func(tx string) uint64 {
+		svc := newIntegrationService(t)
+		cfg, _ := svc.engine.Registry().Get(topicRepTrades)
+		data, _ := json.Marshal(signed(t, subject, recorder, TradeComplete, 1, "app", tx))
+		if err := cfg.Store.Apply(data); err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		return cfg.Store.Fingerprint()
+	}
+	if fingerprintAfter("0xfp-a") == fingerprintAfter("0xfp-b") {
+		t.Error("nodes holding different records reported the same fingerprint")
 	}
 }
 
@@ -436,7 +469,7 @@ func TestReputationStateStore_Apply(t *testing.T) {
 	data, _ := json.Marshal(rec)
 
 	cfg, _ := svc.engine.Registry().Get(topicRepReviews)
-	if err := cfg.Store.Apply(topicRepReviews, data); err != nil {
+	if err := cfg.Store.Apply(data); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 	// Score should reflect the applied record.
@@ -450,13 +483,13 @@ func TestReputationStateStore_Apply_Malformed(t *testing.T) {
 	t.Parallel()
 	svc := newIntegrationService(t)
 	cfg, _ := svc.engine.Registry().Get(topicRepTrades)
-	if err := cfg.Store.Apply(topicRepTrades, []byte("not-json")); err == nil {
+	if err := cfg.Store.Apply([]byte("not-json")); err == nil {
 		t.Error("expected unmarshal error")
 	}
 	// Short subject pubkey.
 	rec := ReputationRecord{SubjectPubKey: []byte{1, 2}, Timestamp: time.Now()}
 	data, _ := json.Marshal(rec)
-	if err := cfg.Store.Apply(topicRepTrades, data); err == nil {
+	if err := cfg.Store.Apply(data); err == nil {
 		t.Error("expected short subject-key error")
 	}
 }
