@@ -305,17 +305,25 @@ func (s *ReputationService) OnBroadcast(topic string, from string, payload []byt
 	if err := json.Unmarshal(payload, &rec); err != nil {
 		return
 	}
+	// A refused record is dropped silently: gossip is best-effort.
+	_ = s.merge(&rec)
+}
 
-	if !VerifyRecord(&rec) {
-		return
+// merge admits one record a peer sent, by gossip (OnBroadcast) or by state
+// sync (reputationStateStore.Apply), under the same rule: a signature
+// VerifyRecord accepts, a subject key of the right size, a score in [-1, 1],
+// and no record already held with the same TxHash from the same recorder.
+// Both paths go through it so that a peer cannot place on one path a record
+// the other refuses.
+func (s *ReputationService) merge(rec *ReputationRecord) error {
+	if !VerifyRecord(rec) {
+		return fmt.Errorf("reputation: the record's signature does not verify")
 	}
-
-	// Validate basics
 	if len(rec.SubjectPubKey) != ed25519.PublicKeySize {
-		return
+		return fmt.Errorf("reputation: invalid subject public key in record")
 	}
 	if rec.Score < -1 || rec.Score > 1 {
-		return
+		return fmt.Errorf("reputation: score %v outside [-1, 1]", rec.Score)
 	}
 
 	key := hex.EncodeToString(rec.SubjectPubKey)
@@ -323,17 +331,17 @@ func (s *ReputationService) OnBroadcast(topic string, from string, payload []byt
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Dedup: check if we already have a record with the same TxHash from the same recorder
 	if rec.TxHash != "" {
 		for _, existing := range s.records[key] {
 			if existing.TxHash == rec.TxHash &&
 				hex.EncodeToString(existing.RecorderPubKey) == hex.EncodeToString(rec.RecorderPubKey) {
-				return // duplicate
+				return nil
 			}
 		}
 	}
 
-	s.records[key] = append(s.records[key], &rec)
+	s.records[key] = append(s.records[key], rec)
+	return nil
 }
 
 // validateRecord performs comprehensive validation on a reputation record.
@@ -413,32 +421,12 @@ func (s *reputationStateStore) Delta(_ time.Time) [][]byte {
 	return s.Snapshot()
 }
 
-// Apply stores an incoming reputation record, deduplicating by TxHash.
+// Apply admits an incoming reputation record through the service's merge,
+// the rule gossip uses: a record whose signature does not verify is refused.
 func (s *reputationStateStore) Apply(data []byte) error {
 	var rec ReputationRecord
 	if err := json.Unmarshal(data, &rec); err != nil {
 		return fmt.Errorf("reputation: unmarshal state record: %w", err)
 	}
-
-	if len(rec.SubjectPubKey) != ed25519.PublicKeySize {
-		return fmt.Errorf("reputation: invalid subject public key in state record")
-	}
-
-	key := hex.EncodeToString(rec.SubjectPubKey)
-
-	s.service.mu.Lock()
-	// Dedup by TxHash + recorder
-	if rec.TxHash != "" {
-		for _, existing := range s.service.records[key] {
-			if existing.TxHash == rec.TxHash &&
-				hex.EncodeToString(existing.RecorderPubKey) == hex.EncodeToString(rec.RecorderPubKey) {
-				s.service.mu.Unlock()
-				return nil // duplicate
-			}
-		}
-	}
-	s.service.records[key] = append(s.service.records[key], &rec)
-	s.service.mu.Unlock()
-
-	return nil
+	return s.service.merge(&rec)
 }

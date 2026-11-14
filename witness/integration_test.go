@@ -794,12 +794,15 @@ func TestWitnessRegistry_OnBroadcast_MergeNewer(t *testing.T) {
 	}
 	_ = r.Register(old)
 
-	// Craft a newer gossip message with better reputation.
+	// Craft a newer gossip message with better reputation, as UpdateReputation
+	// re-publishes one: every field but Reputation and RegisteredAt as held,
+	// the original signature included.
 	newer := witnessRegistrationWire{
 		PubKey:       pub,
 		ChainIDs:     []string{"ethereum"},
 		Reputation:   0.9,
 		RegisteredAt: time.Now().UnixNano(),
+		Signature:    old.Signature,
 	}
 	data, _ := json.Marshal(newer)
 	r.OnBroadcast(canonical.WitnessTopic(), "peer", data)

@@ -280,55 +280,69 @@ func (r *WitnessRegistry) OnBroadcast(topic string, from string, payload []byte)
 		Signature:       wire.Signature,
 	}
 
-	if len(reg.PubKey) != ed25519.PublicKeySize {
-		return
-	}
+	// Silently drop a refused record: gossip frames are best-effort, and a log
+	// line per forged drop would give an attacker an oracle.
+	_ = r.merge(&reg)
+}
 
-	// Security: distinguish the two merge paths.
-	//
-	// 1) Reputation-only / last-seen updates. UpdateReputation re-publishes the
-	//    record after mutating Reputation + RegisteredAt while re-using the
-	//    original signature, so remote peers see a record whose signature no
-	//    longer verifies. Reputation is a local-observation CRDT rather than
-	//    an attester-signed claim; we allow these through without Verify() so
-	//    CRDT convergence still works.
-	//
-	// 2) PayoutAddresses changes. If the incoming record's PayoutAddresses
-	//    map differs byte-for-byte from the existing entry, the payload is
-	//    not a CRDT-style reputation bump — it is a change that would redirect
-	//    on-chain fee payouts. Accept only signed, verifying records; otherwise
-	//    any peer could gossip a forged WitnessRegistration with an
-	//    attacker-controlled PayoutAddresses map and hijack the witness's fees.
-	//
-	// Initial registrations (no existing entry) also require Verify() — a new
-	// witness coming in over gossip must carry a valid signature.
+// merge admits one registration a peer sent, by gossip (OnBroadcast) or by
+// state sync (witnessStateStore.Apply), under one rule, decided and applied
+// under one hold of r.mu so the entry it judged against is the entry it
+// replaces:
+//
+//   - A record whose signature verifies is admitted when it is newer than the
+//     entry held, or when no entry is held.
+//   - A record whose signature does not verify is admitted only as a
+//     reputation update of a held entry: everything but Reputation and
+//     RegisteredAt equal to the held entry, the signature included, and
+//     RegisteredAt later. UpdateReputation re-publishes a record that way,
+//     keeping the original signature over fields it did not change, because
+//     reputation is a local observation and not an attester-signed claim.
+//   - Anything else is refused: an unsigned new witness, or an unsigned change
+//     to its chains, capabilities or PayoutAddresses, which would let any peer
+//     redirect a witness's fee payouts.
+func (r *WitnessRegistry) merge(reg *WitnessRegistration) error {
+	if len(reg.PubKey) != ed25519.PublicKeySize {
+		return fmt.Errorf("witness: invalid public key in registration")
+	}
 	key := hex.EncodeToString(reg.PubKey)
 
 	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	existing, haveExisting := r.entries[key]
-	// Decide whether this merge requires a valid signature. New entries and
-	// PayoutAddresses mutations do; pure reputation / last-seen updates don't.
-	requireVerify := !haveExisting || !payoutAddressesEqual(existing.PayoutAddresses, reg.PayoutAddresses)
-	r.mu.Unlock()
-
-	if requireVerify {
+	if haveExisting && !reg.RegisteredAt.After(existing.RegisteredAt) {
+		return nil
+	}
+	if !(haveExisting && reputationOnlyUpdate(existing, reg)) {
 		if err := reg.Verify(); err != nil {
-			// Silently drop: gossip frames are best-effort and we don't want
-			// to give an attacker a log-based oracle for forged drops.
-			return
+			return fmt.Errorf("witness: the registration's signature does not verify: %w", err)
 		}
 	}
+	r.entries[key] = reg
+	return nil
+}
 
-	r.mu.Lock()
-	// Only accept if newer than existing.
-	if haveExisting {
-		if !reg.RegisteredAt.After(existing.RegisteredAt) {
-			r.mu.Unlock()
-			return
+// reputationOnlyUpdate reports whether next differs from held in Reputation and
+// RegisteredAt alone, the only fields UpdateReputation changes without
+// re-signing.
+func reputationOnlyUpdate(held, next *WitnessRegistration) bool {
+	return bytes.Equal(held.Signature, next.Signature) &&
+		stringsEqual(held.ChainIDs, next.ChainIDs) &&
+		stringsEqual(held.Capabilities, next.Capabilities) &&
+		payoutAddressesEqual(held.PayoutAddresses, next.PayoutAddresses)
+}
+
+func stringsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
 		}
 	}
-	r.entries[key] = &reg
-	r.mu.Unlock()
+	return true
 }
 
 // payoutAddressesEqual reports whether two payout-address maps describe
@@ -601,15 +615,5 @@ func (s *witnessStateStore) Apply(data []byte) error {
 		PayoutAddresses: wire.PayoutAddresses,
 		Signature:       wire.Signature,
 	}
-
-	key := hex.EncodeToString(reg.PubKey)
-
-	s.registry.mu.Lock()
-	existing, ok := s.registry.entries[key]
-	if !ok || reg.RegisteredAt.After(existing.RegisteredAt) {
-		s.registry.entries[key] = reg
-	}
-	s.registry.mu.Unlock()
-
-	return nil
+	return s.registry.merge(reg)
 }

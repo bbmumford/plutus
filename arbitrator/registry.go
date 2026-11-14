@@ -310,16 +310,24 @@ func (r *ArbitratorRegistry) OnBroadcast(topic string, from string, payload []by
 	if err := json.Unmarshal(payload, &profile); err != nil {
 		return
 	}
+	// A refused profile is dropped silently: gossip is best-effort.
+	_ = r.merge(&profile)
+}
 
-	// Validate before accepting
+// merge admits one profile a peer sent, by gossip (OnBroadcast) or by state
+// sync (arbitratorStateStore.Apply), under the same rule: a key of the right
+// size, a fee within maxFeeBPS, a signature VerifyProfile accepts, and a
+// RegisteredAt later than the entry held. Both paths go through it so that a
+// peer cannot place on one path a profile the other refuses.
+func (r *ArbitratorRegistry) merge(profile *ArbitratorProfile) error {
 	if len(profile.PubKey) != ed25519.PublicKeySize {
-		return
+		return fmt.Errorf("arbitrator: invalid public key in profile")
 	}
 	if profile.FeeBPS > maxFeeBPS {
-		return
+		return fmt.Errorf("arbitrator: fee %d bps above the %d bps ceiling", profile.FeeBPS, maxFeeBPS)
 	}
-	if !VerifyProfile(&profile) {
-		return
+	if !VerifyProfile(profile) {
+		return fmt.Errorf("arbitrator: the profile's signature does not verify")
 	}
 
 	key := hex.EncodeToString(profile.PubKey)
@@ -327,12 +335,12 @@ func (r *ArbitratorRegistry) OnBroadcast(topic string, from string, payload []by
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Only accept if newer than existing entry
 	existing, ok := r.entries[key]
 	if ok && !profile.RegisteredAt.After(existing.RegisteredAt) {
-		return
+		return nil
 	}
-	r.entries[key] = &profile
+	r.entries[key] = profile
+	return nil
 }
 
 // arbitratorStateStore implements whisper.StateStore for the arbitrator
@@ -372,25 +380,12 @@ func (s *arbitratorStateStore) Delta(_ time.Time) [][]byte {
 	return s.Snapshot()
 }
 
-// Apply stores an incoming arbitrator record, merging by timestamp.
+// Apply admits an incoming arbitrator record through the registry's merge,
+// the rule gossip uses: a record whose signature does not verify is refused.
 func (s *arbitratorStateStore) Apply(data []byte) error {
 	var profile ArbitratorProfile
 	if err := json.Unmarshal(data, &profile); err != nil {
 		return fmt.Errorf("arbitrator: unmarshal state record: %w", err)
 	}
-
-	if len(profile.PubKey) != ed25519.PublicKeySize {
-		return fmt.Errorf("arbitrator: invalid public key in state record")
-	}
-
-	key := hex.EncodeToString(profile.PubKey)
-
-	s.registry.mu.Lock()
-	existing, ok := s.registry.entries[key]
-	if !ok || profile.RegisteredAt.After(existing.RegisteredAt) {
-		s.registry.entries[key] = &profile
-	}
-	s.registry.mu.Unlock()
-
-	return nil
+	return s.registry.merge(&profile)
 }
