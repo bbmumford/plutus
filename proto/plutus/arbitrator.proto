@@ -10,14 +10,14 @@ import "proto/plutus/common.proto";
 // expertise, and availability. Profiles are gossiped via the
 // plutus.arbitrators StatefulMerge topic.
 message ArbitratorProfile {
-  bytes pub_key = 1;                      // Ed25519 public key
-  map<string, string> chain_addrs = 2;    // chainID -> chain address
-  uint32 fee_bps = 3;                     // fee in basis points (capped at 300)
+  bytes pubKey = 1;                       // Ed25519 public key
+  map<string, string> chainAddrs = 2;     // chainID -> chain address
+  uint32 feeBps = 3;                      // fee in basis points (capped at 300)
   repeated string categories = 4;         // expertise areas: "digital-goods", "services", "physical"
   bool availability = 5;                  // whether the arbitrator is currently accepting cases
   string bio = 6;                         // arbitrator description (max 1024 chars)
   Signature signature = 7;               // Ed25519 signature over all fields except signature
-  Timestamp registered_at = 8;
+  Timestamp registeredAt = 8;
 }
 
 // ArbitratorSelection is a scored arbitrator returned by the selection algorithm.
@@ -29,7 +29,7 @@ message ArbitratorSelection {
 // SelectionCriteria configures arbitrator search and ranking.
 message SelectionCriteria {
   string category = 1;                    // required expertise category
-  string chain_id = 2;                    // required chain support
-  uint32 max_fee_bps = 3;                // maximum acceptable fee (0 = no limit)
+  string chainId = 2;                     // required chain support
+  uint32 maxFeeBps = 3;                  // maximum acceptable fee (0 = no limit)
   uint32 limit = 4;                       // max results (0 = all)
 }

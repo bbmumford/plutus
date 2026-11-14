@@ -6,7 +6,7 @@ option go_package = "github.com/bbmumford/plutus/proto/plutus";
 
 // Signature wraps a cryptographic signature with metadata about the algorithm used.
 message Signature {
-  bytes public_key = 1;      // signer's public key
+  bytes publicKey = 1;       // signer's public key
   bytes signature = 2;       // raw signature bytes
   SignatureAlgorithm algorithm = 3;
 }
@@ -19,8 +19,8 @@ enum SignatureAlgorithm {
 
 // ChainRef identifies a specific blockchain network.
 message ChainRef {
-  string chain_id = 1;       // e.g., "polygon", "ethereum", "bitcoin"
-  uint64 chain_num = 2;      // EIP-155 chain number (EVM only)
+  string chainId = 1;        // e.g., "polygon", "ethereum", "bitcoin"
+  uint64 chainNum = 2;       // EIP-155 chain number (EVM only)
   string network = 3;        // "mainnet", "testnet", "devnet"
 }
 
@@ -29,7 +29,7 @@ message Currency {
   string symbol = 1;         // e.g., "USDC", "ETH", "BTC"
   string name = 2;           // e.g., "USD Coin"
   uint32 decimals = 3;       // token decimals (6 for USDC, 18 for ETH, 8 for BTC)
-  string contract_address = 4; // token contract address (empty for native coins)
+  string contractAddress = 4;  // token contract address (empty for native coins)
   ChainRef chain = 5;
 }
 

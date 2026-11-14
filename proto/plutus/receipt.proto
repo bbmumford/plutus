@@ -10,10 +10,10 @@ import "proto/plutus/common.proto";
 // The provider signs the receipt; the buyer confirms by referencing
 // the receipt hash in the escrow release.
 message ServiceReceipt {
-  bytes provider_pub_key = 1;       // Ed25519 public key of the service provider
-  bytes buyer_nonce = 2;            // nonce provided by buyer to prove request
-  string service_type = 3;          // type of service rendered (e.g. "vdi-session", "print-job")
-  bytes content_hash = 4;           // SHA-256 of service output/proof
+  bytes providerPubKey = 1;         // Ed25519 public key of the service provider
+  bytes buyerNonce = 2;             // nonce provided by buyer to prove request
+  string serviceType = 3;           // type of service rendered (e.g. "vdi-session", "print-job")
+  bytes contentHash = 4;            // SHA-256 of service output/proof
   Timestamp timestamp = 5;          // when the service was rendered
   bytes signature = 6;              // Ed25519 signature over all fields except signature
 }
@@ -22,17 +22,17 @@ message ServiceReceipt {
 // The root hash is referenced in the escrow release for efficient verification.
 message ReceiptBundle {
   repeated ServiceReceipt receipts = 1;
-  bytes merkle_root = 2;            // SHA256 Merkle root of receipt hashes
+  bytes merkleRoot = 2;             // SHA256 Merkle root of receipt hashes
   uint32 count = 3;                 // number of receipts in the bundle
-  Signature bundle_signature = 4;   // seller signs the Merkle root
+  Signature bundleSignature = 4;    // seller signs the Merkle root
 }
 
 // BuyerNonce is an anti-replay token issued by the buyer.
 // Each nonce can only be used once, preventing receipt replay attacks.
 message BuyerNonce {
   bytes nonce = 1;                  // random 32 bytes
-  string buyer_address = 2;
-  Timestamp issued_at = 3;
-  Timestamp expires_at = 4;
-  Signature buyer_signature = 5;    // buyer signs (nonce || issued_at || expires_at)
+  string buyerAddress = 2;
+  Timestamp issuedAt = 3;
+  Timestamp expiresAt = 4;
+  Signature buyerSignature = 5;    // buyer signs (nonce || issuedAt || expiresAt)
 }

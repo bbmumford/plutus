@@ -17,12 +17,12 @@ enum ReputationType {
 // ReputationRecord represents a single reputation event. Records are signed
 // by the recorder and gossiped via Whisper StatefulMerge topics.
 message ReputationRecord {
-  bytes subject_pub_key = 1;              // the party being reviewed
-  bytes recorder_pub_key = 2;            // the party recording the reputation
+  bytes subjectPubKey = 1;                // the party being reviewed
+  bytes recorderPubKey = 2;              // the party recording the reputation
   ReputationType type = 3;
   int32 score = 4;                        // -1, 0, or +1
-  string app_id = 5;                      // application where the trade occurred
-  string tx_hash = 6;                     // on-chain transaction hash for verification
+  string appId = 5;                       // application where the trade occurred
+  string txHash = 6;                      // on-chain transaction hash for verification
   string comment = 7;                     // optional review text (max 2048 chars)
   Timestamp timestamp = 8;
   Signature signature = 9;               // recorder signs all fields except signature
@@ -30,11 +30,11 @@ message ReputationRecord {
 
 // ReputationScore aggregates reputation metrics for a single identity.
 message ReputationScore {
-  int32 total_trades = 1;
-  double positive_rate = 2;               // 0.0 - 1.0
-  double dispute_rate = 3;                // 0.0 - 1.0
-  double avg_rating = 4;                  // -1.0 to +1.0
-  Timestamp first_trade_at = 5;
-  Timestamp last_trade_at = 6;
-  map<string, int32> app_breakdown = 7;  // appID -> trade count
+  int32 totalTrades = 1;
+  double positiveRate = 2;                // 0.0 - 1.0
+  double disputeRate = 3;                 // 0.0 - 1.0
+  double avgRating = 4;                   // -1.0 to +1.0
+  Timestamp firstTradeAt = 5;
+  Timestamp lastTradeAt = 6;
+  map<string, int32> appBreakdown = 7;   // appID -> trade count
 }

@@ -10,16 +10,16 @@ import "proto/plutus/common.proto";
 // on-chain state. Witnesses independently read blockchain state and
 // produce attestations that are gossiped via Whisper for quorum verification.
 message ChainWitnessAttestation {
-  bytes attestation_id = 1;         // unique attestation ID (random 16 bytes)
+  bytes attestationId = 1;          // unique attestation ID (random 16 bytes)
   ChainRef chain = 2;
   string subject = 3;               // what was attested (tx hash, address, contract)
   AttestationType type = 4;
-  bytes witness_pub_key = 5;        // Ed25519 public key of the witness
-  Timestamp attested_at = 6;
+  bytes witnessPubKey = 5;          // Ed25519 public key of the witness
+  Timestamp attestedAt = 6;
   bytes payload = 7;                // attestation-specific data (balance, state snapshot, etc.)
-  Signature witness_signature = 8;  // witness signs all fields above
-  uint64 block_number = 9;          // block number at time of attestation
-  bytes block_hash = 10;            // block hash at time of attestation
+  Signature witnessSignature = 8;   // witness signs all fields above
+  uint64 blockNumber = 9;           // block number at time of attestation
+  bytes blockHash = 10;             // block hash at time of attestation
 }
 
 enum AttestationType {
@@ -34,16 +34,16 @@ enum AttestationType {
 // EscrowSnapshot is the witness-attested state of an escrow contract.
 // Multiple witnesses produce these independently; quorum agreement confirms state.
 message EscrowSnapshot {
-  string escrow_address = 1;
+  string escrowAddress = 1;
   string buyer = 2;
   string seller = 3;
   Amount amount = 4;
   EscrowSnapshotStatus status = 5;
   string arbitrator = 6;
-  uint64 created_at = 7;
-  uint64 timeout_at = 8;
-  uint64 block_number = 9;
-  bytes block_hash = 10;
+  uint64 createdAt = 7;
+  uint64 timeoutAt = 8;
+  uint64 blockNumber = 9;
+  bytes blockHash = 10;
 }
 
 enum EscrowSnapshotStatus {
@@ -73,27 +73,27 @@ message WitnessRegistration {
   //   5 last_seen         (Timestamp, removed — liveness tracked out-of-band)
   //   6 reputation_score  (uint32, replaced by `reputation` double at new tag)
   reserved 5, 6;
-  reserved "last_seen", "reputation_score";
+  reserved "lastSeen", "reputationScore";
 
-  bytes witness_pub_key = 1;
-  repeated string chain_ids = 2;    // chains this witness can attest
+  bytes witnessPubKey = 1;
+  repeated string chainIds = 2;     // chains this witness can attest
   repeated string capabilities = 3; // e.g., "tx_confirm", "balance", "escrow_state"
-  Timestamp registered_at = 4;
-  Signature witness_signature = 7;  // witness signs registration
-  // payout_addresses maps chainID -> on-chain payout address. Address format
+  Timestamp registeredAt = 4;
+  Signature witnessSignature = 7;   // witness signs registration
+  // payoutAddresses maps chainID -> on-chain payout address. Address format
   // is chain-specific (0x... for EVM, bech32 for BTC, etc.). Required for
   // the witness fee distributor to route fee payouts to the correct on-chain
   // account per supported chain. Minimum profile field per Mercury DESIGN §4.
-  map<string, string> payout_addresses = 8;
+  map<string, string> payoutAddresses = 8;
   double reputation = 9;            // [0.0, 1.0] continuous reputation score
 }
 
 // VerificationPolicy configures quorum requirements for a verification request.
 message VerificationPolicy {
   VerificationLevel level = 1;
-  uint32 min_witnesses = 2;         // minimum witnesses that must respond
-  uint32 min_agreement = 3;         // minimum witnesses that must agree
-  uint32 timeout_seconds = 4;       // max time to wait for quorum
+  uint32 minWitnesses = 2;          // minimum witnesses that must respond
+  uint32 minAgreement = 3;          // minimum witnesses that must agree
+  uint32 timeoutSeconds = 4;        // max time to wait for quorum
 }
 
 enum VerificationLevel {
@@ -108,43 +108,43 @@ enum VerificationLevel {
 // balance reading on a target chain. Published on plutus.<fp>.balance.request.
 // Witnesses that can serve the chain respond with signed BalanceAttestations.
 message BalanceQuery {
-  string chain_id             = 1;  // "polygon", "ethereum", "bitcoin", ...
+  string chainId             = 1;   // "polygon", "ethereum", "bitcoin", ...
   string address              = 2;  // chain-native address (hex EVM, bech32 BTC)
   string token                = 3;  // ERC20 contract addr; "" for native
-  uint64 max_age_seconds      = 4;  // reject witnesses with stale snapshots
-  bytes  request_nonce        = 5;  // random per-request; binds response to request
-  string protocol_fingerprint = 6;  // Layer 4 fork isolation
+  uint64 maxAgeSeconds      = 4;    // reject witnesses with stale snapshots
+  bytes  requestNonce        = 5;   // random per-request; binds response to request
+  string protocolFingerprint = 6;   // Layer 4 fork isolation
 }
 
 // BalanceAttestation is a signed statement from a witness reporting the balance
-// it observed for (address, token) on chain_id. Witnesses sign the canonical
+// it observed for (address, token) on chainId. Witnesses sign the canonical
 // SHA-256 of fields 1-10 with their Ed25519 key.
 message BalanceAttestation {
-  string chain_id             = 1;
+  string chainId             = 1;
   string address              = 2;
   string token                = 3;
   bytes  balance              = 4;  // big-endian uint256 for EVM, sat uint64 for BTC
   uint64 decimals             = 5;  // native unit decimals (18 EVM, 6 USDC, 8 BTC)
-  string block_hash           = 6;
-  uint64 block_number         = 7;
+  string blockHash           = 6;
+  uint64 blockNumber         = 7;
   int64  timestamp            = 8;  // witness's observation time (unix seconds)
-  bytes  request_nonce        = 9;  // echoed from query
-  bytes  witness_pubkey       = 10; // Ed25519 public key
+  bytes  requestNonce        = 9;   // echoed from query
+  bytes  witnessPubkey       = 10;  // Ed25519 public key
   bytes  signature            = 11; // Ed25519 over SHA-256 of fields 1-10
-  string protocol_fingerprint = 12;
+  string protocolFingerprint = 12;
 }
 
 // BalanceResult is the client-side outcome of a balance query: the quorum-agreed
 // value (if any) plus all attestations collected for audit/debug.
 message BalanceResult {
-  string chain_id        = 1;
+  string chainId        = 1;
   string address         = 2;
   string token           = 3;
   bytes  balance         = 4;  // quorum-agreed value
   uint64 decimals        = 5;
-  uint64 block_number    = 6;  // latest block seen across attestations
-  uint64 quorum_count    = 7;  // how many witnesses agreed
-  uint64 quorum_required = 8;  // K
-  uint64 quorum_total    = 9;  // N
+  uint64 blockNumber    = 6;   // latest block seen across attestations
+  uint64 quorumCount    = 7;   // how many witnesses agreed
+  uint64 quorumRequired = 8;   // K
+  uint64 quorumTotal    = 9;   // N
   repeated BalanceAttestation attestations = 10; // for audit
 }

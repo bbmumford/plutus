@@ -8,14 +8,14 @@ import "proto/plutus/common.proto";
 
 // EscrowPolicy defines the terms of an escrow before it is created on-chain.
 message EscrowPolicy {
-  string buyer_address = 1;
-  string seller_address = 2;
+  string buyerAddress = 1;
+  string sellerAddress = 2;
   Amount amount = 3;
-  uint64 timeout_seconds = 4;       // escrow timeout duration
-  string arbitrator_address = 5;    // optional
-  string prc_address = 6;           // PRC contract address on this chain
-  repeated bytes witness_hashes = 7; // attestation hashes from witness quorum
-  bytes receipt_hash = 8;           // service receipt Merkle root (if applicable)
+  uint64 timeoutSeconds = 4;        // escrow timeout duration
+  string arbitratorAddress = 5;     // optional
+  string prcAddress = 6;            // PRC contract address on this chain
+  repeated bytes witnessHashes = 7;  // attestation hashes from witness quorum
+  bytes receiptHash = 8;            // service receipt Merkle root (if applicable)
 }
 
 // EscrowState represents the on-chain state of an escrow at a point in time.
@@ -25,10 +25,10 @@ message EscrowState {
   string seller = 3;
   Amount amount = 4;
   EscrowStatus status = 5;
-  string arbitrator_address = 6;
-  uint64 created_at = 7;            // block timestamp
-  uint64 timeout_at = 8;            // block timestamp
-  string prc_address = 9;
+  string arbitratorAddress = 6;
+  uint64 createdAt = 7;             // block timestamp
+  uint64 timeoutAt = 8;             // block timestamp
+  string prcAddress = 9;
   ChainRef chain = 10;
 }
 
@@ -45,40 +45,40 @@ enum EscrowStatus {
 
 // SettlementRequest is sent by a party to initiate escrow settlement.
 message SettlementRequest {
-  string escrow_address = 1;
+  string escrowAddress = 1;
   ChainRef chain = 2;
   FeeBreakdown fees = 3;
-  Signature requester_signature = 4;
-  bytes receipt_hash = 5;           // optional service receipt Merkle root
-  repeated bytes witness_hashes = 6; // witness attestation hashes
+  Signature requesterSignature = 4;
+  bytes receiptHash = 5;            // optional service receipt Merkle root
+  repeated bytes witnessHashes = 6;  // witness attestation hashes
 }
 
 // FeeBreakdown contains the deterministic fee calculation result.
 message FeeBreakdown {
-  string maintainer_fee = 1;        // big.Int as string
-  string service_provider_fee = 2;
-  string arbitrator_fee = 3;
-  string witness_fee = 4;
-  string seller_proceeds = 5;
+  string maintainerFee = 1;         // big.Int as string
+  string serviceProviderFee = 2;
+  string arbitratorFee = 3;
+  string witnessFee = 4;
+  string sellerProceeds = 5;
   string total = 6;
 }
 
 // DisputeRequest flags an escrow for arbitration.
 message DisputeRequest {
-  string escrow_address = 1;
+  string escrowAddress = 1;
   ChainRef chain = 2;
   string reason = 3;
   ContentAddress evidence = 4;      // hash of off-chain evidence bundle
-  string disputer_address = 5;
-  Signature disputer_signature = 6;
+  string disputerAddress = 5;
+  Signature disputerSignature = 6;
 }
 
 // Ruling represents an arbitrator's ruling on a disputed escrow.
 message Ruling {
-  string escrow_address = 1;
-  uint32 buyer_percent = 2;         // 0-100
-  uint32 seller_percent = 3;        // 0-100
-  string arbitrator_address = 4;
-  Signature arbitrator_signature = 5;
+  string escrowAddress = 1;
+  uint32 buyerPercent = 2;          // 0-100
+  uint32 sellerPercent = 3;         // 0-100
+  string arbitratorAddress = 4;
+  Signature arbitratorSignature = 5;
   ContentAddress reason = 6;        // hash of the reasoning document
 }
