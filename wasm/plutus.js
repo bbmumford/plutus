@@ -1,6 +1,6 @@
 /**
- * Copyright (c) 2026 HSTLES / ORBTR Pty Ltd. All Rights Reserved.
- * Queries: licensing@hstles.com
+ * Copyright (c) 2026 Brandon Miller-Mumford.
+ * Licensed under the MIT License; see LICENSE.
  *
  * Plutus JS SDK — browser-side wrapper classes for the Plutus WASM module.
  * Exposes PlutusWallet, PlutusEscrow, PlutusWitness, PlutusReputation, and
