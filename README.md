@@ -1,8 +1,14 @@
-# Plutus — Universal Commerce Protocol
+# plutus
 
-> `github.com/bbmumford/plutus`
+plutus is a commerce protocol for peer-to-peer payments: a wallet, signed
+per-chain currency adapters (EVM USDC and Bitcoin), non-custodial on-chain
+escrow, deterministic settlement, and a witness protocol through which nodes
+that cannot reach a chain verify its state. Every escrow pays a maintainer fee
+fixed on-chain by the Protocol Registry Contract.
 
-Plutus is a universal commerce protocol for peer-to-peer payments, non-custodial escrow, and chain-agnostic settlement. Any application can integrate Plutus for commerce with automatic, immutable maintainer fee extraction.
+```sh
+go get github.com/bbmumford/plutus
+```
 
 ## API Docs
 
@@ -25,14 +31,14 @@ Generated API reference (pkgsite) for each tagged release is published to GitHub
 ## Architecture
 
 ```
-Applications (Mercury, freelance, subscription, any app)
+Applications (a marketplace, any app)
     │
     ▼
 Plutus (wallet, adapters, witnesses, escrow, settlement)
     │
-    ├── Aether (transport)
-    ├── Whisper (witness gossip)
-    └── Ledger (attestation storage)
+    ├── whisper (witness gossip)
+    ├── ledger (attestation records, the cache, on-chain storage proofs)
+    └── diststore (blob fetch)
     │
     ▼
 Blockchain (EVM, Bitcoin — via witness attestations)
@@ -40,7 +46,7 @@ Blockchain (EVM, Bitcoin — via witness attestations)
 
 ## Fee Enforcement
 
-Every escrow settlement extracts a 1% maintainer fee at the smart contract level:
+Every escrow settlement extracts the maintainer fee at the smart contract level, at the rate the chain's PRC fixes:
 
 1. **PRC** (Protocol Registry Contract) — immutable on-chain, stores fee BPS + maintainer pubkey
 2. **Escrow contracts** — read fee from PRC at construction, extract before releasing
@@ -81,14 +87,64 @@ A node that cannot reach a chain's RPC (a browser running the WASM build, for on
 
 Balance reads use `witness.BalancePolicy` (3 witnesses, 2 must agree, 5 s) unless the caller sets its own. `witness.CollusionDetector` tracks how often each pair of witnesses agrees and flags pairs whose agreement is suspiciously high.
 
-## Depends On
+## Packages
 
-- **Aether** (`github.com/ORBTR/aether`) — wire protocol, transport
-- **Whisper** (`github.com/bbmumford/whisper`) — gossip engine for witness attestations
-- **Ledger** (`github.com/bbmumford/ledger`) — witness registry, attestation storage
+| package | what it holds |
+|---|---|
+| `plutus` | the SDK entry and the witness and arbitrator topic names |
+| `wallet`, `evmsign`, `canonical`, `receipt` | the wallet (BIP39 seed, key hierarchy, encrypted storage, protocol-enforced signing), EIP-155 transaction signing, the hard-coded PRC addresses and trust-chain anchors, and signed receipts with their nonces and bundles |
+| `adapter`, `adapter/evm`, `adapter/btc` | the currency adapter interface and the EVM and Bitcoin adapters (Bitcoin through neutrino) |
+| `escrow`, `settle`, `arbitrator` | escrow lifecycles, fee calculation and payout, arbitrator registry and selection |
+| `witness`, `reputation` | the chain witness protocol and witness reputation |
+| `maintainer`, `cmd/plutus-ceremony` | deploying and certifying a PRC |
+| `blob` | the storage-escrow client and the blob transport over diststore |
+| `observability`, `observability/exporters` | tracing and metrics, and their OpenTelemetry exporters |
+| `wasm`, `wasmratelimit` | the browser build and its rate limiter |
+| `contracts/evm`, `contracts/btc` | the Solidity contracts (`ProtocolRegistry.sol`, `PlutusEscrow.sol`, `PlutusStorageEscrow.sol`, Foundry project) and the Bitcoin escrow script |
+| `proto/plutus`, `internal/gossipstate` | the protobuf messages and the gossip state store |
 
-## Consumed By
+## Dependencies
 
-- **Mercury** (`github.com/bbmumford/mercury`) — decentralised marketplace
-- Any Minerva app needing commerce
-- Any web/native app needing P2P payments
+- `github.com/bbmumford/whisper`: the witness and arbitrator gossip.
+- `github.com/bbmumford/ledger` (with `cache` and
+  `blob/distributed/onchain`): records, the directory cache and storage proofs.
+- `github.com/bbmumford/diststore/fetch`: blob fetches.
+- `github.com/btcsuite/btcd` (with `btcutil`), `github.com/btcsuite/btcwallet/walletdb`,
+  `github.com/lightninglabs/neutrino` and
+  `github.com/decred/dcrd/dcrec/secp256k1/v4` for Bitcoin and secp256k1;
+  OpenTelemetry (`go.opentelemetry.io/otel` and its exporters) and
+  `github.com/prometheus/client_golang` for observability.
+- `go.mod` replaces aether, whisper, ledger and diststore with the sibling
+  checkouts `../aether`, `../whisper`, `../ledger` and `../diststore`.
+
+## Used by
+
+Importers in the ORBTR estate:
+
+- `github.com/bbmumford/mercury` (its root package, `order`, `arbitration`,
+  `reputation`, `runtime/mesh`, `cmd/mercury` and `cmd/mercury-node`, over
+  `adapter`, `adapter/btc`, `adapter/evm`, `escrow`, `settle`, `wallet`,
+  `witness`, `arbitrator`, `blob`, `reputation`, `observability`,
+  `observability/exporters` and `wasmratelimit`): the marketplace pays and
+  settles through plutus.
+
+## Platforms and build
+
+Pure Go, no cgo. `adapter/btc` and `observability/exporters` build everywhere
+but js; `wasm` builds only for js/wasm. The Solidity contracts build and test
+with Foundry (`contracts/evm/foundry.toml`). The module's `go` directive is
+1.25.0. Releases are cut by release-please from conventional commits, and each
+tag publishes the API reference to the repository's GitHub Pages site.
+
+## Licence
+
+MIT. Copyright (c) 2026 Brandon Miller-Mumford. The full text is in
+[LICENSE](LICENSE).
+
+## Contributing
+
+[AGENTS.md](AGENTS.md) holds the repository's two rules, for people and coding
+agents alike: no temporary documents in the repository, and conventional commit
+messages that stand on their own. [CLAUDE.md](CLAUDE.md) imports it for Claude
+Code; [CONTRIBUTING.md](CONTRIBUTING.md) has the commit and release
+conventions.
