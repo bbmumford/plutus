@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 const (
@@ -18,6 +19,9 @@ const (
 	btcSymbol   = "BTC"
 	// Satoshis per BTC.
 	satoshiPerBTC = 100_000_000
+	// maxMoneySat is the most satoshis that can ever exist (21 million BTC); no
+	// output amount can exceed it.
+	maxMoneySat = 21_000_000 * satoshiPerBTC
 )
 
 // MeshTransport is the interface for sending Bitcoin JSON-RPC calls through
@@ -127,12 +131,12 @@ func (c *BTCClient) ListUnspent(ctx context.Context, addr string) ([]UTXO, error
 	}
 
 	var rawUTXOs []struct {
-		TxID          string  `json:"txid"`
-		Vout          uint32  `json:"vout"`
-		Address       string  `json:"address"`
-		Amount        float64 `json:"amount"`
-		Confirmations uint32  `json:"confirmations"`
-		ScriptPubKey  string  `json:"scriptPubKey"`
+		TxID          string      `json:"txid"`
+		Vout          uint32      `json:"vout"`
+		Address       string      `json:"address"`
+		Amount        json.Number `json:"amount"`
+		Confirmations uint32      `json:"confirmations"`
+		ScriptPubKey  string      `json:"scriptPubKey"`
 	}
 	if err := json.Unmarshal(result, &rawUTXOs); err != nil {
 		return nil, fmt.Errorf("btc: decode listunspent: %w", err)
@@ -140,8 +144,10 @@ func (c *BTCClient) ListUnspent(ctx context.Context, addr string) ([]UTXO, error
 
 	utxos := make([]UTXO, len(rawUTXOs))
 	for i, raw := range rawUTXOs {
-		// Convert BTC amount to satoshis.
-		satoshis := new(big.Int).SetInt64(int64(raw.Amount * satoshiPerBTC))
+		satoshis, err := satoshisFromBTC(raw.Amount)
+		if err != nil {
+			return nil, fmt.Errorf("btc: listunspent output %s:%d: %w", raw.TxID, raw.Vout, err)
+		}
 		utxos[i] = UTXO{
 			TxID:          raw.TxID,
 			Vout:          raw.Vout,
@@ -153,6 +159,48 @@ func (c *BTCClient) ListUnspent(ctx context.Context, addr string) ([]UTXO, error
 	}
 
 	return utxos, nil
+}
+
+// satoshisFromBTC converts a node's BTC amount, the decimal figure listunspent
+// reports, into an exact count of satoshis. ListUnspent's outputs carry this
+// value into the escrow's funded amount and into the input amount a segwit
+// signature commits to, so it is read from the decimal text the node sent:
+// a float64 holds most decimal fractions only approximately, and truncating
+// 0.29 * 1e8 gives 28,999,999. An amount that is negative, that has more than
+// eight decimal places, that exceeds the 21 million BTC that can exist, or
+// whose text is too long to be an amount is refused rather than rounded.
+func satoshisFromBTC(amount json.Number) (*big.Int, error) {
+	text := string(amount)
+	if text == "" {
+		return nil, errors.New("amount is missing")
+	}
+	// A JSON number's text can carry an exponent; bounding the text and the
+	// exponent keeps a hostile figure such as 1e999999999 from making the
+	// exact conversion allocate without limit.
+	if len(text) > 40 {
+		return nil, fmt.Errorf("amount %q is too long", text)
+	}
+	if i := strings.IndexAny(text, "eE"); i >= 0 {
+		exp := strings.TrimLeft(text[i+1:], "+-")
+		if len(exp) > 2 {
+			return nil, fmt.Errorf("amount %q has an exponent out of range", text)
+		}
+	}
+	btc, ok := new(big.Rat).SetString(text)
+	if !ok {
+		return nil, fmt.Errorf("amount %q is not a decimal number", text)
+	}
+	if btc.Sign() < 0 {
+		return nil, fmt.Errorf("amount %q is negative", text)
+	}
+	sat := btc.Mul(btc, new(big.Rat).SetInt64(satoshiPerBTC))
+	if !sat.IsInt() {
+		return nil, fmt.Errorf("amount %q has more than eight decimal places", text)
+	}
+	if sat.Num().Cmp(big.NewInt(maxMoneySat)) > 0 {
+		return nil, fmt.Errorf("amount %q exceeds the 21 million BTC that can exist", text)
+	}
+	return new(big.Int).Set(sat.Num()), nil
 }
 
 // SendRawTransaction broadcasts a signed transaction to the Bitcoin network
@@ -207,8 +255,8 @@ func (c *BTCClient) EstimateSmartFee(ctx context.Context, confTarget uint32) (fl
 	}
 
 	var feeResult struct {
-		FeeRate float64 `json:"feerate"` // BTC per kB
-		Blocks  int     `json:"blocks"`
+		FeeRate float64  `json:"feerate"` // BTC per kB
+		Blocks  int      `json:"blocks"`
 		Errors  []string `json:"errors,omitempty"`
 	}
 	if err := json.Unmarshal(result, &feeResult); err != nil {
