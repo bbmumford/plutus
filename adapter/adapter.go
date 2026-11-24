@@ -25,24 +25,26 @@ type CurrencyAdapter interface {
 	EscrowState(escrowAddr string) (*EscrowState, error)
 	Balance(addr string) (*big.Int, error)
 
-	// Fee calculation.
-	CalculateFees(amount *big.Int, opts FeeOptions) FeeBreakdown
+	// Fee calculation: the breakdown of a positive amount under opts, refused when
+	// an option exceeds its role's BPS cap or the roles together exceed the
+	// combined cap. The parts always sum to the amount.
+	CalculateFees(amount *big.Int, opts FeeOptions) (FeeBreakdown, error)
 }
 
 // EscrowParams contains the parameters for constructing a new escrow.
 type EscrowParams struct {
-	Buyer                string   // buyer's chain address
-	Seller               string   // seller's chain address
-	Amount               *big.Int // escrow amount in smallest denomination
-	Currency             string   // currency symbol (e.g., "USDC")
-	TimeoutSeconds       uint64   // escrow timeout in seconds
-	ArbitratorAddr       string   // optional arbitrator address
-	PRCAddress           string   // Protocol Registry Contract address on this chain
-	WitnessHashes        [][]byte // optional witness attestation hashes
-	ReceiptHash          []byte   // optional service receipt hash
-	ServiceProviderBPS   uint32   // service provider fee in basis points (max 200)
-	ServiceProviderPayout string  // service provider payout address
-	ArbitratorBPS        uint32   // arbitrator fee in basis points (max 300)
+	Buyer                 string   // buyer's chain address
+	Seller                string   // seller's chain address
+	Amount                *big.Int // escrow amount in smallest denomination
+	Currency              string   // currency symbol (e.g., "USDC")
+	TimeoutSeconds        uint64   // escrow timeout in seconds
+	ArbitratorAddr        string   // optional arbitrator address
+	PRCAddress            string   // Protocol Registry Contract address on this chain
+	WitnessHashes         [][]byte // optional witness attestation hashes
+	ReceiptHash           []byte   // optional service receipt hash
+	ServiceProviderBPS    uint32   // service provider fee in basis points (max 200)
+	ServiceProviderPayout string   // service provider payout address
+	ArbitratorBPS         uint32   // arbitrator fee in basis points (max 300)
 
 	// ArbitratorPayout is the chain-native address that receives the
 	// arbitrator fee when the escrow is settled via ruling. Optional —
@@ -68,13 +70,13 @@ type EscrowParams struct {
 // adapters fall back to paying the entire witness fee to the transaction
 // witness (existing behaviour).
 type FeeBreakdown struct {
-	MaintainerFee      *big.Int // fee to protocol maintainer (from PRC)
-	ServiceProviderFee *big.Int // fee to service provider (zero if no receipt)
-	ArbitratorFee      *big.Int // fee to arbitrator (zero if no dispute)
-	WitnessFee         *big.Int // aggregate fee to witnesses (zero if no attestations)
+	MaintainerFee      *big.Int            // fee to protocol maintainer (from PRC)
+	ServiceProviderFee *big.Int            // fee to service provider (zero if no receipt)
+	ArbitratorFee      *big.Int            // fee to arbitrator (zero if no dispute)
+	WitnessFee         *big.Int            // aggregate fee to witnesses (zero if no attestations)
 	WitnessFees        map[string]*big.Int // optional per-witness distribution, hex(pubkey) -> amount
-	SellerProceeds     *big.Int // remaining amount to seller
-	Total              *big.Int // total escrow amount
+	SellerProceeds     *big.Int            // remaining amount to seller
+	Total              *big.Int            // total escrow amount
 }
 
 // TotalWitnessFee returns the aggregate witness fee. If WitnessFees is populated,
@@ -109,9 +111,9 @@ type FeeOptions struct {
 
 // ReleaseParams contains parameters for releasing an escrow to the seller.
 type ReleaseParams struct {
-	ReceiptHash    []byte // service receipt Merkle root (if applicable)
-	WitnessHashes  [][]byte // attestation hashes from witness quorum
-	Fees           FeeBreakdown // pre-calculated fee breakdown
+	ReceiptHash   []byte       // service receipt Merkle root (if applicable)
+	WitnessHashes [][]byte     // attestation hashes from witness quorum
+	Fees          FeeBreakdown // pre-calculated fee breakdown
 }
 
 // DisputeParams contains parameters for flagging an escrow as disputed.
@@ -123,11 +125,11 @@ type DisputeParams struct {
 
 // Ruling represents an arbitrator's ruling on a disputed escrow.
 type Ruling struct {
-	BuyerPercent  uint32 // percentage of escrow to buyer (0-100)
-	SellerPercent uint32 // percentage of escrow to seller (0-100)
+	BuyerPercent   uint32 // percentage of escrow to buyer (0-100)
+	SellerPercent  uint32 // percentage of escrow to seller (0-100)
 	ArbitratorAddr string
-	Signature     []byte // arbitrator's signature on the ruling
-	ReasonHash    []byte // hash of the reasoning document
+	Signature      []byte // arbitrator's signature on the ruling
+	ReasonHash     []byte // hash of the reasoning document
 }
 
 // EscrowState represents the current on-chain state of an escrow.
@@ -148,33 +150,33 @@ type EscrowState struct {
 type EscrowStatus int
 
 const (
-	EscrowStatusPending    EscrowStatus = iota // created, awaiting funding
-	EscrowStatusFunded                         // buyer has funded
-	EscrowStatusReleased                       // seller paid, escrow complete
-	EscrowStatusDisputed                       // dispute flag raised
-	EscrowStatusSettled                        // arbitrator ruled, funds distributed
-	EscrowStatusRefunded                       // timeout reached, buyer refunded
-	EscrowStatusCancelled                      // cancelled before funding
+	EscrowStatusPending   EscrowStatus = iota // created, awaiting funding
+	EscrowStatusFunded                        // buyer has funded
+	EscrowStatusReleased                      // seller paid, escrow complete
+	EscrowStatusDisputed                      // dispute flag raised
+	EscrowStatusSettled                       // arbitrator ruled, funds distributed
+	EscrowStatusRefunded                      // timeout reached, buyer refunded
+	EscrowStatusCancelled                     // cancelled before funding
 )
 
 // UnsignedTx represents an unsigned transaction ready for signing.
 type UnsignedTx struct {
-	ChainID      string   // target chain
-	To           string   // destination address (contract or recipient)
-	Amount       *big.Int // value to transfer (may be zero for contract calls)
-	Payload      []byte   // serialized transaction data (ABI-encoded for EVM, script for BTC)
-	GasLimit     uint64   // estimated gas (EVM only)
-	GasPrice     *big.Int // gas price or max fee (EVM only)
-	Nonce        uint64   // sender nonce
-	EscrowAddr   string   // escrow contract address (for reference)
+	ChainID    string   // target chain
+	To         string   // destination address (contract or recipient)
+	Amount     *big.Int // value to transfer (may be zero for contract calls)
+	Payload    []byte   // serialized transaction data (ABI-encoded for EVM, script for BTC)
+	GasLimit   uint64   // estimated gas (EVM only)
+	GasPrice   *big.Int // gas price or max fee (EVM only)
+	Nonce      uint64   // sender nonce
+	EscrowAddr string   // escrow contract address (for reference)
 }
 
 // AdapterInfo contains metadata about a loaded adapter.
 type AdapterInfo struct {
-	ChainID     string
-	Currency    string
-	Symbol      string
-	Version     string
-	PRCAddress  string
-	SignedBy    []byte // maintainer public key that signed this adapter
+	ChainID    string
+	Currency   string
+	Symbol     string
+	Version    string
+	PRCAddress string
+	SignedBy   []byte // maintainer public key that signed this adapter
 }

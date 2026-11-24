@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bbmumford/plutus/adapter"
+	"github.com/bbmumford/plutus/settle"
 )
 
 // GasModel identifies the gas pricing model used by a chain.
@@ -323,8 +324,11 @@ func (a *EVMAdapter) Balance(addr string) (*big.Int, error) {
 	return a.erc20.BalanceOf(context.Background(), addr)
 }
 
-func (a *EVMAdapter) CalculateFees(amount *big.Int, opts adapter.FeeOptions) adapter.FeeBreakdown {
-	return calculateFeesCommon(amount, opts)
+// CalculateFees answers settle.FeeCalculator's breakdown, so a fee this adapter
+// reports honours the same per-role and combined BPS caps, and the same
+// seller-takes-the-remainder rule, as every other settlement path.
+func (a *EVMAdapter) CalculateFees(amount *big.Int, opts adapter.FeeOptions) (adapter.FeeBreakdown, error) {
+	return settle.NewFeeCalculator().Calculate(amount, opts)
 }
 
 // attachGas estimates and assigns gas parameters to an unsigned tx. Errors are

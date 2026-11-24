@@ -55,8 +55,8 @@ func (f *fakeAdapter) EscrowState(string) (*adapter.EscrowState, error) {
 	return f.state, nil
 }
 func (f *fakeAdapter) Balance(string) (*big.Int, error) { return nil, errors.New("not used") }
-func (f *fakeAdapter) CalculateFees(*big.Int, adapter.FeeOptions) adapter.FeeBreakdown {
-	return adapter.FeeBreakdown{}
+func (f *fakeAdapter) CalculateFees(*big.Int, adapter.FeeOptions) (adapter.FeeBreakdown, error) {
+	return adapter.FeeBreakdown{}, nil
 }
 
 type fakeSigner struct {

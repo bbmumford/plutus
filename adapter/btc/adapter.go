@@ -15,6 +15,7 @@ import (
 
 	"github.com/bbmumford/plutus/adapter"
 	"github.com/bbmumford/plutus/canonical"
+	"github.com/bbmumford/plutus/settle"
 )
 
 // BTCAdapter implements adapter.CurrencyAdapter for Bitcoin (mainnet or testnet).
@@ -37,12 +38,12 @@ import (
 //     The adapter keeps the escrow's script + funding UTXO in memory keyed
 //     by that address so that later release/refund calls can rebuild the tx.
 type BTCAdapter struct {
-	client          *BTCClient
-	feeEstimator    *BTCFeeEstimator
-	utxoSelector    *UTXOSelector
-	hrp             string // "bc" (mainnet) or "tb" (testnet)
-	chainID         string
-	maintainerAddr  string
+	client         *BTCClient
+	feeEstimator   *BTCFeeEstimator
+	utxoSelector   *UTXOSelector
+	hrp            string // "bc" (mainnet) or "tb" (testnet)
+	chainID        string
+	maintainerAddr string
 
 	mu      sync.RWMutex
 	escrows map[string]*BTCEscrowState // key: P2WSH address
@@ -63,9 +64,9 @@ type BTCEscrowState struct {
 
 	// FundingTxID / FundingVout / FundingAmount identify the funding UTXO
 	// once the escrow has been funded. Zero before funding.
-	FundingTxID    string
-	FundingVout    uint32
-	FundingAmount  *big.Int // satoshis
+	FundingTxID   string
+	FundingVout   uint32
+	FundingAmount *big.Int // satoshis
 
 	// Status follows adapter.EscrowStatus.
 	Status adapter.EscrowStatus
@@ -533,9 +534,11 @@ func (a *BTCAdapter) Balance(addr string) (*big.Int, error) {
 	return a.client.GetBalance(context.Background(), addr)
 }
 
-// CalculateFees performs BPS-based fee math identical to the EVM path.
-func (a *BTCAdapter) CalculateFees(amount *big.Int, opts adapter.FeeOptions) adapter.FeeBreakdown {
-	return calculateBTCFees(amount, opts)
+// CalculateFees answers settle.FeeCalculator's breakdown, so a fee this adapter
+// reports honours the same per-role and combined BPS caps, and the same
+// seller-takes-the-remainder rule, as every other settlement path.
+func (a *BTCAdapter) CalculateFees(amount *big.Int, opts adapter.FeeOptions) (adapter.FeeBreakdown, error) {
+	return settle.NewFeeCalculator().Calculate(amount, opts)
 }
 
 // FindFundingUTXO implements escrow.BTCMeshUTXOSource on the BTCAdapter so a
@@ -577,57 +580,4 @@ func (a *BTCAdapter) RecordFunding(address, fundingTxID string, vout uint32, amo
 	state.FundingAmount = new(big.Int).Set(amountSat)
 	state.Status = adapter.EscrowStatusFunded
 	return nil
-}
-
-// calculateBTCFees mirrors evm.calculateFeesCommon — identical BPS semantics
-// since fee math is chain-agnostic. Duplicated here rather than imported
-// only to avoid the adapter/btc → adapter/evm reverse dependency.
-func calculateBTCFees(amount *big.Int, opts adapter.FeeOptions) adapter.FeeBreakdown {
-	if amount == nil || amount.Sign() <= 0 {
-		return adapter.FeeBreakdown{Total: big.NewInt(0)}
-	}
-	bpsBase := big.NewInt(10000)
-	base := new(big.Int).Set(amount)
-
-	bpsMul := func(v *big.Int, bps uint32) *big.Int {
-		if bps == 0 {
-			return new(big.Int)
-		}
-		out := new(big.Int).Mul(v, big.NewInt(int64(bps)))
-		return out.Div(out, bpsBase)
-	}
-
-	maintainerFee := bpsMul(base, opts.MaintainerBPS)
-
-	witnessFee := new(big.Int)
-	if opts.HasWitness {
-		witnessFee = bpsMul(base, opts.WitnessBPS)
-	}
-	serviceFee := new(big.Int)
-	if opts.HasServiceProvider {
-		serviceFee = bpsMul(base, opts.ServiceProviderBPS)
-	}
-	arbitratorFee := new(big.Int)
-	if opts.HasDispute {
-		arbitratorFee = bpsMul(base, opts.ArbitratorBPS)
-	}
-
-	totalFees := new(big.Int)
-	totalFees.Add(totalFees, maintainerFee)
-	totalFees.Add(totalFees, witnessFee)
-	totalFees.Add(totalFees, serviceFee)
-	totalFees.Add(totalFees, arbitratorFee)
-
-	sellerProceeds := new(big.Int).Sub(base, totalFees)
-	if sellerProceeds.Sign() < 0 {
-		sellerProceeds = new(big.Int)
-	}
-	return adapter.FeeBreakdown{
-		MaintainerFee:      maintainerFee,
-		ServiceProviderFee: serviceFee,
-		ArbitratorFee:      arbitratorFee,
-		WitnessFee:         witnessFee,
-		SellerProceeds:     sellerProceeds,
-		Total:              new(big.Int).Set(amount),
-	}
 }

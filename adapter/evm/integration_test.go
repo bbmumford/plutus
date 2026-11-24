@@ -870,9 +870,12 @@ func TestEthereumUSDCAdapter_LifecycleCalls(t *testing.T) {
 	if _, err := a.Balance("0xAddr"); err != nil {
 		t.Errorf("Balance: %v", err)
 	}
-	fees := a.CalculateFees(big.NewInt(10000), adapter.FeeOptions{
+	fees, err := a.CalculateFees(big.NewInt(10000), adapter.FeeOptions{
 		MaintainerBPS: 100, HasServiceProvider: true, ServiceProviderBPS: 50,
 	})
+	if err != nil {
+		t.Fatalf("CalculateFees: %v", err)
+	}
 	if fees.MaintainerFee == nil || fees.MaintainerFee.Int64() != 100 {
 		t.Errorf("maintainer fee: got %v, want 100", fees.MaintainerFee)
 	}
@@ -906,7 +909,10 @@ func TestPolygonUSDCAdapter_LifecycleCalls(t *testing.T) {
 	if _, err := a.Balance("0xAddr"); err != nil {
 		t.Error(err)
 	}
-	fees := a.CalculateFees(big.NewInt(1000), adapter.FeeOptions{MaintainerBPS: 100})
+	fees, err := a.CalculateFees(big.NewInt(1000), adapter.FeeOptions{MaintainerBPS: 100})
+	if err != nil {
+		t.Fatalf("CalculateFees: %v", err)
+	}
 	if fees.Total.Int64() != 1000 {
 		t.Error("total fee mismatch")
 	}
@@ -940,7 +946,9 @@ func TestArbitrumUSDCAdapter_LifecycleCalls(t *testing.T) {
 	if _, err := a.Balance("0xAddr"); err != nil {
 		t.Error(err)
 	}
-	_ = a.CalculateFees(big.NewInt(1000), adapter.FeeOptions{MaintainerBPS: 100})
+	if _, err := a.CalculateFees(big.NewInt(1000), adapter.FeeOptions{MaintainerBPS: 100}); err != nil {
+		t.Errorf("CalculateFees: %v", err)
+	}
 }
 
 func TestBSCBUSDAdapter_LifecycleCalls(t *testing.T) {
@@ -971,27 +979,28 @@ func TestBSCBUSDAdapter_LifecycleCalls(t *testing.T) {
 	if _, err := a.Balance("0xAddr"); err != nil {
 		t.Error(err)
 	}
-	_ = a.CalculateFees(big.NewInt(1000), adapter.FeeOptions{MaintainerBPS: 100})
-}
-
-// --- CalculateFeesCommon tests ---
-
-func TestCalculateFeesCommon_ZeroAmount(t *testing.T) {
-	t.Parallel()
-	fees := calculateFeesCommon(nil, adapter.FeeOptions{MaintainerBPS: 100})
-	if fees.Total.Sign() != 0 {
-		t.Error("nil amount should produce zero total")
-	}
-	fees = calculateFeesCommon(big.NewInt(0), adapter.FeeOptions{MaintainerBPS: 100})
-	if fees.Total.Sign() != 0 {
-		t.Error("zero amount should produce zero total")
+	if _, err := a.CalculateFees(big.NewInt(1000), adapter.FeeOptions{MaintainerBPS: 100}); err != nil {
+		t.Errorf("CalculateFees: %v", err)
 	}
 }
 
-func TestCalculateFeesCommon_FullBreakdown(t *testing.T) {
+// --- CalculateFees tests ---
+
+func TestCalculateFees_NonPositiveAmountRefused(t *testing.T) {
 	t.Parallel()
+	a, _ := NewPolygonUSDCAdapter(newFakeTransport(), "0xPRC")
+	for _, amount := range []*big.Int{nil, big.NewInt(0), big.NewInt(-1)} {
+		if _, err := a.CalculateFees(amount, adapter.FeeOptions{MaintainerBPS: 100}); err == nil {
+			t.Errorf("amount %v: a breakdown was answered, want a refusal", amount)
+		}
+	}
+}
+
+func TestCalculateFees_FullBreakdown(t *testing.T) {
+	t.Parallel()
+	a, _ := NewPolygonUSDCAdapter(newFakeTransport(), "0xPRC")
 	amount := big.NewInt(10_000)
-	fees := calculateFeesCommon(amount, adapter.FeeOptions{
+	fees, err := a.CalculateFees(amount, adapter.FeeOptions{
 		MaintainerBPS:      100, // 1%
 		HasServiceProvider: true,
 		ServiceProviderBPS: 50, // 0.5%
@@ -1000,6 +1009,9 @@ func TestCalculateFeesCommon_FullBreakdown(t *testing.T) {
 		HasWitness:         true,
 		WitnessBPS:         25, // 0.25%
 	})
+	if err != nil {
+		t.Fatalf("CalculateFees: %v", err)
+	}
 	// 10000 * 100/10000 = 100
 	if fees.MaintainerFee.Int64() != 100 {
 		t.Errorf("maintainer: got %s, want 100", fees.MaintainerFee)
@@ -1022,15 +1034,22 @@ func TestCalculateFeesCommon_FullBreakdown(t *testing.T) {
 	}
 }
 
-func TestCalculateFeesCommon_FeesExceedAmount(t *testing.T) {
+// Fee options past a role's cap, or past the combined cap, are refused, so an
+// adapter never reports a breakdown whose parts exceed the amount.
+func TestCalculateFees_CapsRefused(t *testing.T) {
 	t.Parallel()
-	// Degenerate case: BPS > 10000 -> seller proceeds clamps to 0.
-	amount := big.NewInt(100)
-	fees := calculateFeesCommon(amount, adapter.FeeOptions{
-		MaintainerBPS:      20000, // > 100%
-	})
-	if fees.SellerProceeds.Sign() < 0 {
-		t.Error("seller proceeds must never be negative")
+	a, _ := NewPolygonUSDCAdapter(newFakeTransport(), "0xPRC")
+	for name, opts := range map[string]adapter.FeeOptions{
+		"maintainer over 500":  {MaintainerBPS: 501},
+		"witness over 100":     {HasWitness: true, WitnessBPS: 101},
+		"service over 200":     {HasServiceProvider: true, ServiceProviderBPS: 201},
+		"arbitrator over 300":  {HasDispute: true, ArbitratorBPS: 301},
+		"combined over 1000":   {MaintainerBPS: 500, HasWitness: true, WitnessBPS: 100, HasServiceProvider: true, ServiceProviderBPS: 200, HasDispute: true, ArbitratorBPS: 300},
+		"more than the amount": {MaintainerBPS: 20000},
+	} {
+		if fees, err := a.CalculateFees(big.NewInt(10_000), opts); err == nil {
+			t.Errorf("%s: answered %+v, want a refusal", name, fees)
+		}
 	}
 }
 
