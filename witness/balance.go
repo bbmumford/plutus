@@ -69,18 +69,18 @@ type BalanceQuery struct {
 
 // BalanceAttestation is a witness's signed balance observation.
 type BalanceAttestation struct {
-	ChainID             string   `json:"chainId"`
-	Address             string   `json:"address"`
-	Token               string   `json:"token,omitempty"`
-	Balance             []byte   `json:"balance"`
-	Decimals            uint64   `json:"decimals"`
-	BlockHash           string   `json:"blockHash"`
-	BlockNumber         uint64   `json:"blockNumber"`
-	Timestamp           int64    `json:"timestamp"`
-	RequestNonce        []byte   `json:"requestNonce"`
-	WitnessPubKey       []byte   `json:"witnessPubkey"`
-	Signature           []byte   `json:"signature"`
-	ProtocolFingerprint string   `json:"protocolFingerprint"`
+	ChainID             string `json:"chainId"`
+	Address             string `json:"address"`
+	Token               string `json:"token,omitempty"`
+	Balance             []byte `json:"balance"`
+	Decimals            uint64 `json:"decimals"`
+	BlockHash           string `json:"blockHash"`
+	BlockNumber         uint64 `json:"blockNumber"`
+	Timestamp           int64  `json:"timestamp"`
+	RequestNonce        []byte `json:"requestNonce"`
+	WitnessPubKey       []byte `json:"witnessPubkey"`
+	Signature           []byte `json:"signature"`
+	ProtocolFingerprint string `json:"protocolFingerprint"`
 }
 
 // BalanceResult is the outcome of a client-side balance query, once the
@@ -301,12 +301,26 @@ func (v *BalanceVerifier) RecentBalanceAttesters(orderContext string) []string {
 // SplitWitnessFee produces a per-witness distribution map over the given
 // attesters such that the values sum to witnessFee exactly. The split is equal
 // modulo a remainder-to-first-attester rule so no wei/sats are lost to integer
-// truncation. Returns nil when attesters is empty (caller falls back to
-// single-recipient legacy behaviour) or when witnessFee is non-positive.
+// truncation. An attester named more than once is one recipient: the shares
+// are counted over distinct attesters, because the map holds one entry per
+// attester and a repeated name would otherwise overwrite its own share and
+// leave the rest of the fee unassigned. Returns nil when attesters is empty
+// (the caller pays the whole fee to a single recipient) or when witnessFee is
+// non-positive.
 func SplitWitnessFee(witnessFee *big.Int, attesters []string) map[string]*big.Int {
 	if witnessFee == nil || witnessFee.Sign() <= 0 || len(attesters) == 0 {
 		return nil
 	}
+	seen := make(map[string]struct{}, len(attesters))
+	distinct := make([]string, 0, len(attesters))
+	for _, k := range attesters {
+		if _, dup := seen[k]; dup {
+			continue
+		}
+		seen[k] = struct{}{}
+		distinct = append(distinct, k)
+	}
+	attesters = distinct
 	n := big.NewInt(int64(len(attesters)))
 	share := new(big.Int).Quo(witnessFee, n)
 	remainder := new(big.Int).Sub(witnessFee, new(big.Int).Mul(share, n))
