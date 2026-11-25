@@ -3,23 +3,27 @@
  * Licensed under the MIT License; see LICENSE.
  */
 
-// Package wasmratelimit implements a per-method token bucket rate limiter
-// used by the Plutus and Mercury WASM bridges to defend against a rogue or
-// compromised JS page hammering sensitive exports (sendFunds, sendMessage,
-// submitReview, etc).
+// Package wasmratelimit is the per-method rate limit of the Plutus and Mercury
+// WASM bridges, which defends against a rogue or compromised JS page hammering
+// sensitive exports (sendFunds, sendMessage, submitReview, etc).
 //
-// The limiter is self-contained (no dependency on golang.org/x/time/rate) so
-// the js/wasm binary stays small and the code path is trivially auditable.
-// Algorithm: fractional token bucket with tokens-per-minute refill and a
-// burst cap. Each WASM bridge instance owns its own limiter to avoid
-// cross-contamination. Limits are per-call-site within the bridge, not
-// per-peer — the threat model is rogue JS on the page, not rogue peers.
+// The bridge declares every method it exports with a Category at startup
+// (RegisterMethods), and the page may raise or lower a declared method's limit
+// (SetLimit, through the bridge's initRateLimits). A method never declared is
+// refused: a bridge that exports a method without declaring it gets an error
+// from every call rather than a limit nobody chose. The buckets are
+// github.com/bbmumford/ratelimit's Keyed token buckets, one named limit per
+// method, refilled continuously at the method's per-minute rate up to its
+// burst. Each bridge instance owns its own limiter. Limits are per method, not
+// per peer: the threat model is rogue JS on the page, not rogue peers.
 package wasmratelimit
 
 import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/bbmumford/ratelimit"
 )
 
 // Category classifies a bridge method into a default-limit bucket.
@@ -69,146 +73,103 @@ func DefaultForCategory(c Category) MethodLimit {
 	}
 }
 
-// bucket is a single per-method token bucket. refillRate is tokens per second.
-type bucket struct {
-	mu         sync.Mutex
-	tokens     float64
-	capacity   float64
-	refillRate float64 // tokens/sec
-	last       time.Time
-	perMinute  int // cached limit for error messages
-}
+// bridgeKey is the one key every method's bucket is spent under: a limiter
+// belongs to one bridge instance, so the method name alone tells buckets apart.
+const bridgeKey = "bridge"
 
-func newBucket(limit MethodLimit, now time.Time) *bucket {
-	cap := float64(limit.Burst)
-	if cap < 1 {
-		cap = 1
-	}
-	return &bucket{
-		tokens:     cap,
-		capacity:   cap,
-		refillRate: float64(limit.PerMinute) / 60.0,
-		last:       now,
-		perMinute:  limit.PerMinute,
-	}
-}
+// keyedMaxAge and keyedMaxKeys bound the Keyed limiter's bucket map: one
+// bucket per declaration under bridgeKey, swept after an hour idle.
+const (
+	keyedMaxAge  = time.Hour
+	keyedMaxKeys = 1024
+)
 
-// allow consumes one token if available; returns false if the bucket is empty.
-func (b *bucket) allow(now time.Time) bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	elapsed := now.Sub(b.last).Seconds()
-	if elapsed > 0 {
-		b.tokens += elapsed * b.refillRate
-		if b.tokens > b.capacity {
-			b.tokens = b.capacity
-		}
-		b.last = now
-	}
-	if b.tokens >= 1.0 {
-		b.tokens -= 1.0
-		return true
-	}
-	return false
-}
-
-// Limiter holds per-method token buckets and the method->category map.
+// Limiter holds one bridge's declared methods and their limits on a
+// ratelimit.Keyed.
 type Limiter struct {
-	mu         sync.RWMutex
-	buckets    map[string]*bucket
-	categories map[string]Category
-	// nowFn allows tests to inject a fake clock.
-	nowFn func() time.Time
+	k *ratelimit.Keyed
+
+	mu       sync.RWMutex
+	declared map[string]declaredMethod // every method Allow admits
+	gen      int                       // counts declarations, so each one names a fresh Keyed limit
 }
 
-// New builds a Limiter with an empty method->category map. Callers should add
-// mappings via RegisterMethod (or RegisterMethods) before calling Allow. A
-// method with no registered category is treated as read (conservative
-// default for unknown methods).
+// declaredMethod is one declared method's limit and the Keyed limit name its
+// bucket lives under. A declaration takes a new name, so a changed limit starts
+// from a full bucket of its own burst instead of the old limit's bucket.
+type declaredMethod struct {
+	limit MethodLimit // PerMinute 0 for a method SetLimit left without a limit
+	name  string
+}
+
+// New builds a Limiter with no method declared; Allow refuses every method
+// until RegisterMethod, RegisterMethods or SetLimit declares it.
 func New() *Limiter {
-	return &Limiter{
-		buckets:    make(map[string]*bucket),
-		categories: make(map[string]Category),
-		nowFn:      time.Now,
-	}
+	return &Limiter{k: ratelimit.NewKeyed(keyedMaxAge, keyedMaxKeys), declared: make(map[string]declaredMethod)}
 }
 
-// SetNowFunc overrides the clock source (tests only).
-func (r *Limiter) SetNowFunc(fn func() time.Time) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if fn == nil {
-		fn = time.Now
-	}
-	r.nowFn = fn
-}
-
-// RegisterMethod assigns a method name to a category. Called at bridge startup.
+// RegisterMethod declares a method with its category's default limit. Called
+// at bridge startup.
 func (r *Limiter) RegisterMethod(method string, cat Category) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.categories[method] = cat
-	// Drop any previously-built bucket so the new category's default applies.
-	delete(r.buckets, method)
+	r.set(method, DefaultForCategory(cat))
 }
 
 // RegisterMethods is a bulk helper for a method->category map.
 func (r *Limiter) RegisterMethods(m map[string]Category) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	for method, cat := range m {
-		r.categories[method] = cat
-		delete(r.buckets, method)
+		r.RegisterMethod(method, cat)
 	}
 }
 
-// SetLimit overrides the per-method limit. Called by JS via initRateLimits.
-// A zero PerMinute or Burst disables limiting for the method (bucket of
-// impossibly-high cap); callers should not do this in production.
+// SetLimit declares method with limit, replacing its category default. Called
+// by JS via initRateLimits. A PerMinute or Burst that is not positive leaves
+// the method declared without a limit; callers should not do this in
+// production.
 func (r *Limiter) SetLimit(method string, limit MethodLimit) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	if limit.PerMinute <= 0 || limit.Burst <= 0 {
-		r.buckets[method] = newBucket(MethodLimit{PerMinute: 1_000_000, Burst: 1_000_000}, r.nowFn())
+		name := r.declare(method, MethodLimit{})
+		r.k.Unlimited(name)
 		return
 	}
-	r.buckets[method] = newBucket(limit, r.nowFn())
+	r.set(method, limit)
 }
 
-// Allow returns nil if the call is permitted, else a rate-limit error whose
-// message matches the spec:
+// declare records method at limit under a fresh Keyed limit name and returns
+// the name.
+func (r *Limiter) declare(method string, limit MethodLimit) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.gen++
+	name := fmt.Sprintf("%s#%d", method, r.gen)
+	r.declared[method] = declaredMethod{limit: limit, name: name}
+	return name
+}
+
+// set declares method at limit and gives it a fresh bucket of limit.Burst
+// tokens refilled at limit.PerMinute a minute.
+func (r *Limiter) set(method string, limit MethodLimit) {
+	if limit.Burst < 1 {
+		limit.Burst = 1
+	}
+	r.k.Set(r.declare(method, limit), limit.PerMinute, limit.Burst, time.Minute)
+}
+
+// Allow returns nil if the call is permitted, else an error whose message
+// names the method: for a declared method whose bucket is empty,
 //
 //	"rate limit exceeded: <method> limited to N per minute"
+//
+// and for a method never declared, "rate limit exceeded: <method> is not a
+// declared bridge method".
 func (r *Limiter) Allow(method string) error {
 	r.mu.RLock()
-	b, ok := r.buckets[method]
-	cat, hasCat := r.categories[method]
-	now := r.nowFn()
+	d, ok := r.declared[method]
 	r.mu.RUnlock()
-
 	if !ok {
-		// Lazily build the bucket from the registered category (or the
-		// safest-sane default if the method was never registered).
-		var limit MethodLimit
-		if hasCat {
-			limit = DefaultForCategory(cat)
-		} else {
-			// Unknown method: use read-level default (visible but not free).
-			limit = DefaultForCategory(CategoryRead)
-		}
-		r.mu.Lock()
-		if existing, exists := r.buckets[method]; exists {
-			b = existing
-		} else {
-			b = newBucket(limit, now)
-			r.buckets[method] = b
-		}
-		r.mu.Unlock()
+		return fmt.Errorf("rate limit exceeded: %s is not a declared bridge method", method)
 	}
-
-	if b.allow(now) {
+	if allowed, _ := r.k.Allow(d.name, bridgeKey); allowed {
 		return nil
 	}
-	return fmt.Errorf("rate limit exceeded: %s limited to %d per minute", method, b.perMinute)
+	return fmt.Errorf("rate limit exceeded: %s limited to %d per minute", method, d.limit.PerMinute)
 }

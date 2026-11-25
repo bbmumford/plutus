@@ -12,30 +12,12 @@ import (
 	"time"
 )
 
-// fakeClock returns a function suitable for Limiter.SetNowFunc. Advancing is
-// thread-safe.
-func fakeClock(start time.Time) (nowFn func() time.Time, advance func(d time.Duration)) {
-	var mu sync.Mutex
-	cur := start
-	nowFn = func() time.Time {
-		mu.Lock()
-		defer mu.Unlock()
-		return cur
-	}
-	advance = func(d time.Duration) {
-		mu.Lock()
-		defer mu.Unlock()
-		cur = cur.Add(d)
-	}
-	return
-}
-
 func TestDefaultForCategory(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		cat     Category
-		perMin  int
-		burst   int
+		cat    Category
+		perMin int
+		burst  int
 	}{
 		{CategoryDestructive, 10, 3},
 		{CategoryStateMutation, 30, 5},
@@ -77,16 +59,14 @@ func TestAllowWithinBurst(t *testing.T) {
 	}
 }
 
+// TestRefillOverTime drains a method at 600 a minute (one token every 100ms) and
+// waits for the bucket to refill on the real clock, as the bridge's limiter runs.
 func TestRefillOverTime(t *testing.T) {
 	t.Parallel()
 	r := New()
-	r.RegisterMethod("getBalance", CategoryRead) // 100/min, burst 20
+	r.SetLimit("getBalance", MethodLimit{PerMinute: 600, Burst: 2})
 
-	now, advance := fakeClock(time.Unix(1700000000, 0))
-	r.SetNowFunc(now)
-
-	// Drain the burst.
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 2; i++ {
 		if err := r.Allow("getBalance"); err != nil {
 			t.Fatalf("drain call %d: %v", i, err)
 		}
@@ -94,22 +74,10 @@ func TestRefillOverTime(t *testing.T) {
 	if err := r.Allow("getBalance"); err == nil {
 		t.Fatal("expected rejection after drain")
 	}
-
-	// After 600ms at 100/min (1.666 tokens/sec) we should have ~1 token.
-	advance(600 * time.Millisecond)
-	if err := r.Allow("getBalance"); err != nil {
-		t.Fatalf("expected refill to allow next call: %v", err)
-	}
-	// But the second call in that tick should be rejected (only ~0 tokens left).
-	if err := r.Allow("getBalance"); err == nil {
-		t.Fatal("expected rejection — only one token refilled")
-	}
-
-	// After a full minute the bucket should be back to capacity.
-	advance(60 * time.Second)
-	for i := 0; i < 20; i++ {
+	time.Sleep(250 * time.Millisecond) // two tokens' worth at 10 a second, capped at the burst of 2
+	for i := 0; i < 2; i++ {
 		if err := r.Allow("getBalance"); err != nil {
-			t.Fatalf("post-refill call %d: %v", i, err)
+			t.Fatalf("expected refill to allow call %d: %v", i, err)
 		}
 	}
 }
@@ -119,26 +87,18 @@ func TestCryptoGatedIsStrictest(t *testing.T) {
 	r := New()
 	r.RegisterMethod("getMnemonic", CategoryCryptoGated) // 5/min, burst 2
 
-	now, advance := fakeClock(time.Unix(1700000000, 0))
-	r.SetNowFunc(now)
-
 	if err := r.Allow("getMnemonic"); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Allow("getMnemonic"); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.Allow("getMnemonic"); err == nil {
+	err := r.Allow("getMnemonic")
+	if err == nil {
 		t.Fatal("third call should be rejected — burst is 2")
 	}
-
-	// 5/min = one token every 12s. Advance 12s => one token.
-	advance(12 * time.Second)
-	if err := r.Allow("getMnemonic"); err != nil {
-		t.Fatalf("after 12s: %v", err)
-	}
-	if err := r.Allow("getMnemonic"); err == nil {
-		t.Fatal("second call after 12s should be rejected")
+	if !strings.Contains(err.Error(), "5 per minute") {
+		t.Errorf("error message = %q, want '5 per minute'", err.Error())
 	}
 }
 
@@ -146,8 +106,11 @@ func TestSetLimitOverride(t *testing.T) {
 	t.Parallel()
 	r := New()
 	r.RegisterMethod("sendFunds", CategoryDestructive) // default: 10/min, burst 3
+	if err := r.Allow("sendFunds"); err != nil {
+		t.Fatal(err)
+	}
 
-	// Desktop app raises the limit.
+	// Desktop app raises the limit; the method starts again from the new burst.
 	r.SetLimit("sendFunds", MethodLimit{PerMinute: 120, Burst: 10})
 
 	for i := 0; i < 10; i++ {
@@ -155,13 +118,24 @@ func TestSetLimitOverride(t *testing.T) {
 			t.Fatalf("override call %d: %v", i, err)
 		}
 	}
-	if err := r.Allow("sendFunds"); err == nil {
-		t.Fatal("expected rejection after draining override burst")
-	}
 	// Error reports the NEW per-minute rate.
 	err := r.Allow("sendFunds")
 	if err == nil || !strings.Contains(err.Error(), "120 per minute") {
 		t.Errorf("expected '120 per minute' in %v", err)
+	}
+}
+
+// TestSetLimitZeroLeavesTheMethodDeclaredWithoutALimit pins initRateLimits' way to lift a method's limit: the
+// method stays declared, so its calls are admitted, every one.
+func TestSetLimitZeroLeavesTheMethodDeclaredWithoutALimit(t *testing.T) {
+	t.Parallel()
+	r := New()
+	r.RegisterMethod("getBalance", CategoryRead)
+	r.SetLimit("getBalance", MethodLimit{})
+	for i := 0; i < 500; i++ {
+		if err := r.Allow("getBalance"); err != nil {
+			t.Fatalf("call %d of a method declared without a limit: %v", i, err)
+		}
 	}
 }
 
@@ -191,19 +165,19 @@ func TestPerMethodIsolation(t *testing.T) {
 	}
 }
 
-func TestUnknownMethodDefaultsToRead(t *testing.T) {
+// TestAnUndeclaredMethodIsRefused pins the fail-closed rule: a method the bridge never declared is refused on its
+// first call, so a bridge that exports a method without declaring it finds out at once instead of running it under
+// a limit nobody chose.
+func TestAnUndeclaredMethodIsRefused(t *testing.T) {
 	t.Parallel()
 	r := New()
-	// No RegisterMethod call. Unknown methods get read-level defaults
-	// (100/min, burst 20) — visible enough to not break dev workflows but
-	// not free.
-	for i := 0; i < 20; i++ {
-		if err := r.Allow("randomUnmappedMethod"); err != nil {
-			t.Fatalf("unknown-method call %d: %v", i, err)
-		}
+	r.RegisterMethod("getBalance", CategoryRead)
+	err := r.Allow("randomUnmappedMethod")
+	if err == nil {
+		t.Fatal("an undeclared method was admitted")
 	}
-	if err := r.Allow("randomUnmappedMethod"); err == nil {
-		t.Fatal("expected read-default rejection after 20 calls")
+	if !strings.Contains(err.Error(), "randomUnmappedMethod") || !strings.Contains(err.Error(), "not a declared bridge method") {
+		t.Errorf("error message = %q, want the method named as not declared", err.Error())
 	}
 }
 
@@ -211,8 +185,8 @@ func TestRegisterMethodsBulk(t *testing.T) {
 	t.Parallel()
 	r := New()
 	r.RegisterMethods(map[string]Category{
-		"sendFunds":     CategoryDestructive,
-		"getBalance":    CategoryRead,
+		"sendFunds":      CategoryDestructive,
+		"getBalance":     CategoryRead,
 		"createIdentity": CategoryCryptoGated,
 	})
 	// Sanity: each method uses its assigned category's default burst.

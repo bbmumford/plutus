@@ -109,6 +109,8 @@ Balance reads use `witness.BalancePolicy` (3 witnesses, 2 must agree, 5 s) unles
 - `github.com/bbmumford/ledger` (with `cache`): records and the directory cache.
 - `github.com/bbmumford/diststore` (`fetch`, `onchain`): blob fetches, and the
   proof-of-storage and pinning surface the storage escrow client implements.
+- `github.com/bbmumford/ratelimit`: the per-method limits of the browser
+  bridges (`wasmratelimit`).
 - `github.com/btcsuite/btcd` (with `btcutil`), `github.com/btcsuite/btcwallet/walletdb`,
   `github.com/lightninglabs/neutrino` and
   `github.com/decred/dcrd/dcrec/secp256k1/v4` for Bitcoin and secp256k1;

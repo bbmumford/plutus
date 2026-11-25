@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/bbmumford/ledger v0.0.1
+	github.com/bbmumford/ratelimit v0.1.0
 	github.com/bbmumford/whisper v0.0.15
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcutil v1.1.5
