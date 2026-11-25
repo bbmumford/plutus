@@ -106,9 +106,9 @@ Balance reads use `witness.BalancePolicy` (3 witnesses, 2 must agree, 5 s) unles
 ## Dependencies
 
 - `github.com/bbmumford/whisper`: the witness and arbitrator gossip.
-- `github.com/bbmumford/ledger` (with `cache` and
-  `blob/distributed/onchain`): records, the directory cache and storage proofs.
-- `github.com/bbmumford/diststore/fetch`: blob fetches.
+- `github.com/bbmumford/ledger` (with `cache`): records and the directory cache.
+- `github.com/bbmumford/diststore` (`fetch`, `onchain`): blob fetches, and the
+  proof-of-storage and pinning surface the storage escrow client implements.
 - `github.com/btcsuite/btcd` (with `btcutil`), `github.com/btcsuite/btcwallet/walletdb`,
   `github.com/lightninglabs/neutrino` and
   `github.com/decred/dcrd/dcrec/secp256k1/v4` for Bitcoin and secp256k1;
