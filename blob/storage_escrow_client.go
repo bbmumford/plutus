@@ -53,7 +53,7 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	"github.com/bbmumford/ledger/blob/distributed/onchain"
+	"github.com/bbmumford/diststore/onchain"
 	"github.com/bbmumford/plutus/evmsign"
 )
 
@@ -412,8 +412,7 @@ func (c *StorageEscrowClient) RespondAt(ctx context.Context, escrowAddr string, 
 // ─── onchain.EscrowClient satisfaction ────────────────────────────────
 
 // Compile-time assertion that StorageEscrowClient satisfies the
-// pin-side EscrowClient interface declared in
-// ledger/blob/distributed/onchain.
+// pin-side EscrowClient interface declared in diststore/onchain.
 var _ onchain.EscrowClient = (*StorageEscrowClient)(nil)
 
 // CreatePin is the pin-side constructor call. It deploys a new

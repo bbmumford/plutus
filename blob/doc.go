@@ -3,14 +3,14 @@
  * Licensed under the MIT License; see LICENSE.
  */
 
-// Package blob wires the ledger distributed-blob subsystem onto the
-// Aether wire protocol. It is the Plutus-side "Phase 3" adapter the
-// ledger.distributed package intentionally stops short of providing.
+// Package blob binds diststore's blob fetch onto the Aether wire protocol
+// and diststore's proof-of-storage escrow seam onto plutus's on-chain
+// storage escrow contract.
 //
 // # Responsibilities
 //
-// The ledger package (see _PACKAGES/ledger/blob/distributed) defines the
-// transport-agnostic pieces of the blob subsystem:
+// diststore's fetch package (github.com/bbmumford/diststore/fetch) defines
+// the transport-agnostic pieces of the blob subsystem:
 //
 //   - BlobFetchStreamID (uint64 = 300) — the well-known Aether stream ID
 //     assigned to the blob-fetch subprotocol.
@@ -19,10 +19,11 @@
 //     DecodeFetchResponse — canonical codecs.
 //   - PeerTransport — the interface the Fetcher needs to reach a peer.
 //
-// The ledger package deliberately does NOT import aether so the extraction
-// direction stays clean. This package supplies the Aether binding: an
-// AetherTransport type that satisfies distributed.PeerTransport by opening
-// a stream on BlobFetchStreamID and exchanging length-prefixed JSON frames.
+// diststore does not import aether. This package supplies the Aether
+// binding: an AetherTransport type that satisfies fetch.PeerTransport by
+// opening a stream on BlobFetchStreamID and exchanging length-prefixed JSON
+// frames. StorageEscrowClient satisfies diststore/onchain's EscrowClient
+// against the PlutusStorageEscrow contract.
 //
 // # Wire format
 //
@@ -46,8 +47,7 @@
 //
 //	// Outbound: turn a SessionProvider into a PeerTransport.
 //	transport := blob.NewAetherTransport(provider)
-//	fetcher, _ := distributed.NewFetcher(resolver, transport, cfg)
+//	fetcher, _ := fetch.New(resolver, transport, cfg)
 //
-// See _PACKAGES/ledger/blob/distributed/fetcher.go for the full transport
-// contract and the Phase 2 agent notes on Aether integration.
+// diststore's fetch.PeerTransport states the full transport contract.
 package blob

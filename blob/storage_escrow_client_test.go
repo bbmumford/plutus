@@ -23,7 +23,7 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	"github.com/bbmumford/ledger/blob/distributed/onchain"
+	"github.com/bbmumford/diststore/onchain"
 	"github.com/bbmumford/plutus/evmsign"
 )
 
