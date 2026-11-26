@@ -337,8 +337,8 @@ func EmitCanonicalSource(rootPubKeyPath, platformCertPath string, deployCertPath
 	}
 	sb.WriteString("},\n")
 
-	// Also emit the MaintainerPubKeyHash (SHA-256 of the platform pub key,
-	// for backward compatibility with the legacy single-key model).
+	// Also emit the MaintainerPubKeyHash (SHA-256 of the platform pub key):
+	// the canonical package embeds it, and the PRC address commits to it.
 	pkHash := sha256.Sum256(platformCert.PlatformPubKey)
 	sb.WriteString("\n// MaintainerPubKeyHash (SHA-256 of Platform Public Key)\n")
 	sb.WriteString(buildCanonicalSnippet(pkHash[:]))

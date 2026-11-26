@@ -626,19 +626,17 @@ func parseEVMEnvelope(raw []byte) (evmEnvelope, error) {
 
 // --- EIP-155 signing delegation -------------------------------------------
 //
-// The consensus-critical legacy-tx signing primitive now lives in the
-// leaf package plutus/evmsign. Historically it was defined here, which
-// forced the blob-escrow client to duplicate ~80 lines. This file keeps
-// thin wrappers under the old private names so the existing in-package
-// test suite (wallet_signer_test.go) continues to exercise identical
-// byte sequences, and so any future caller in witness that needs to
-// RLP-encode a header field has the helper at hand.
+// The consensus-critical EIP-155 legacy-transaction signing primitive lives
+// in the leaf package plutus/evmsign, which the blob-escrow client imports as
+// well. This file keeps thin private wrappers over it so the in-package test
+// suite (wallet_signer_test.go) exercises the same byte sequences, and so a
+// caller in witness that needs to RLP-encode a header field has the helper at
+// hand.
 
 // rlpBytes / rlpList / rlpUint / rlpBigInt / keccak256 are thin
 // re-exports of evmsign helpers. Do NOT add logic here — every caller
-// that wants legacy EIP-155 signing or RLP encoding should go through
-// evmsign directly; these wrappers exist only for historical test
-// compatibility.
+// that wants EIP-155 legacy-transaction signing or RLP encoding should go
+// through evmsign directly; these wrappers exist for wallet_signer_test.go.
 
 func rlpBytes(b []byte) []byte       { return evmsign.RLPBytes(b) }
 func rlpList(items ...[]byte) []byte { return evmsign.RLPList(items...) }
@@ -658,9 +656,9 @@ func keccak256(b []byte) [32]byte {
 // readEncryptedKeyfile is a local clone of wallet.ReadEncryptedKeyfile.
 // Keeping it here — rather than importing plutus/wallet — avoids the import
 // cycle that would form through wallet → adapter/btc → witness. The file
-// format is the spec-verbatim [salt:16][nonce:24][ciphertext+tag] per
-// cryptographic-protocol.md §8 and is bit-compatible with the wallet
-// helper (same Argon2id parameters, same AEAD, same associated data).
+// format is [salt:16][nonce:24][ciphertext+tag], bit-compatible with
+// wallet.WriteEncryptedKeyfile (same Argon2id parameters, same AEAD, same
+// associated data).
 const (
 	keyfileSaltSize       = 16
 	keyfileNonceSize      = 24

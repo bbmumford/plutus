@@ -66,9 +66,9 @@ func TestDeriveDifferentIdentities(t *testing.T) {
 	}
 }
 
-// DeriveChainKey and DeriveOrderEscrowKey previously triggered a Go 1.25
-// strict-on-curve panic because BIP32 non-hardened steps called
-// elliptic.CurveParams.ScalarBaseMult on the fake secp256k1 CurveParams.
+// DeriveChainKey and DeriveOrderEscrowKey must not panic: Go's strict
+// on-curve check panics when a BIP32 non-hardened step calls
+// elliptic.CurveParams.ScalarBaseMult on hand-built secp256k1 CurveParams.
 // Point ops now go through the pure-Go scalarMultG (secp256k1_sign.go),
 // so the hierarchy tests are fully exercised.
 

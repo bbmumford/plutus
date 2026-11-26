@@ -22,16 +22,17 @@ type NeutrinoClient interface {
 }
 
 // ErrPortalNetworkPending is returned by ChainPoolBalanceProvider for EVM
-// chains until the Portal Network client is wired up. Per mercury DESIGN §4
-// EVM witnessing is inactive at M4-M15; the fee distributor can still group
-// EVM earnings and produce signed payout txs, but cannot automatically cap
-// them against a pool balance without an on-chain balance source.
+// chains while no trustless EVM balance source (a Portal Network light client)
+// is wired: EVM witnessing is inactive without one; the fee distributor can
+// still group EVM earnings and produce signed payout txs, but cannot
+// automatically cap them against a pool balance without an on-chain balance
+// source.
 //
 // Callers that observe this error should skip the balance cap for the group
 // and proceed with builder-emitted payouts; the distributor's Run() path
 // already tolerates a nil return from PoolBalance (best-effort cap).
 var ErrPortalNetworkPending = errors.New(
-	"witness/pool_balance_provider: EVM pool balance unavailable — Portal Network client not yet wired (mercury DESIGN §4)",
+	"witness/pool_balance_provider: EVM pool balance unavailable — no Portal Network client is wired",
 )
 
 // ChainPoolBalanceProvider satisfies PoolBalanceProvider. It resolves balances

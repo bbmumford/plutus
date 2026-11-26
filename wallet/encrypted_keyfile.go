@@ -22,7 +22,7 @@ import (
 // Encrypted-keyfile primitive for on-disk storage of wallet private keys
 // (including witness payout-wallet keys used by the fee distributor's signer).
 //
-// Format (exactly matches cryptographic-protocol.md §8):
+// Format (witness.readEncryptedKeyfile reads the same bytes):
 //
 //   [salt:16][nonce:24][ciphertext][tag:16]
 //
@@ -33,23 +33,21 @@ import (
 //   - tag: 16-byte Poly1305 authenticator (appended to ciphertext by aead.Seal)
 //
 // Associated data is the constant string keyfileAD ("mercury-wallet-v1"). The
-// empty passphrase is intentionally allowed (spec §8: "empty for no
-// encryption") but still runs the full Argon2id + AEAD path so the on-disk
-// format is uniform — callers never have to special-case an unencrypted blob.
+// empty passphrase is intentionally allowed (it means no passphrase) but still
+// runs the full Argon2id + AEAD path so the on-disk format is uniform —
+// callers never have to special-case an unencrypted blob.
 //
-// NOTE on format versioning: we deliberately do NOT prefix a format version
-// byte. The spec in cryptographic-protocol.md §8 defines the blob as
-// [salt:16][nonce:24][ciphertext][tag:16] with no version header, and this
-// primitive must match the spec verbatim. If KDF parameters ever change,
-// that is a spec change — update cryptographic-protocol.md §8 first, then
-// this file. See the "Format byte decision" note in the session delivery.
+// NOTE on format versioning: the blob carries no format version byte; it is
+// exactly [salt:16][nonce:24][ciphertext][tag:16], which
+// witness.readEncryptedKeyfile also parses. Changing the KDF parameters or the
+// layout changes the format both readers share, so they change together.
 
 // keyfileAD is the Associated Data bound into every wallet keyfile. Changing
 // this string renders all existing files unreadable (AEAD verify will fail
 // with ErrBadPassphrase).
 const keyfileAD = "mercury-wallet-v1"
 
-// Argon2id + XChaCha20-Poly1305 parameters per cryptographic-protocol.md §8.
+// Argon2id + XChaCha20-Poly1305 parameters of the keyfile format.
 const (
 	argon2TimeV1    = 3
 	argon2MemoryV1  = 64 * 1024 // 64 MB

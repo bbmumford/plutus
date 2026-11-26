@@ -31,8 +31,8 @@ var (
 	// aggregate3Value((address,bool,uint256,bytes)[]) => 0x174dea71
 	selectorAggregate3Value = mustKeccakSelector("aggregate3Value((address,bool,uint256,bytes)[])")
 	// distributeWindow(bytes32,uint64,bytes32,address,address[],uint256[]) =>
-	// the first-writer-wins entrypoint on the Protocol Registry Contract
-	// (DESIGN §17). Computed at package init so drift from the contract
+	// the first-writer-wins entrypoint on the Protocol Registry Contract.
+	// Computed at package init so drift from the contract
 	// signature surfaces as a failing selector test.
 	selectorDistributeWindow = mustKeccakSelector(
 		"distributeWindow(bytes32,uint64,bytes32,address,address[],uint256[])")
@@ -79,7 +79,7 @@ type EVMPayoutBuilder struct {
 	// PRCAddress is the on-chain Protocol Registry Contract address for this
 	// chain. When populated AND the builder is invoked via the window-aware
 	// path (BuildWindowedBatchPayout), the tx targets PRC.distributeWindow
-	// directly — the DESIGN §17 first-writer-wins idempotency gate. Empty
+	// directly — the first-writer-wins idempotency gate. Empty
 	// means the window-aware path is unavailable and BuildWindowedBatchPayout
 	// falls back to the Multicall3 path.
 	PRCAddress string
@@ -314,7 +314,7 @@ func (b *EVMPayoutBuilder) BuildWindowedBatchPayout(
 	attestationLogRoot [32]byte,
 ) (witness.UnsignedBatch, error) {
 	var zero [32]byte
-	// Fall back to the legacy path when the preconditions for
+	// Fall back to BuildBatchPayout when the preconditions for
 	// PRC.distributeWindow are not met. Each branch documents why.
 	switch {
 	case b.PRCAddress == "":
@@ -322,9 +322,9 @@ func (b *EVMPayoutBuilder) BuildWindowedBatchPayout(
 		return b.BuildBatchPayout(from, payouts, useMulticall3)
 	case !b.IsERC20:
 		// distributeWindow transfers an ERC20 token; native-currency payouts
-		// have no compatible on-chain primitive here. DESIGN §17 notes that
-		// native distributions must use a wrapped-native token or settle via
-		// Multicall3 with off-chain (rather than contract-enforced) idempotency.
+		// have no compatible on-chain primitive here, so native distributions
+		// settle via Multicall3 with off-chain (rather than contract-enforced)
+		// idempotency, or use a wrapped-native token.
 		return b.BuildBatchPayout(from, payouts, useMulticall3)
 	case windowID == 0 || attestationLogRoot == zero:
 		// Metadata not populated — contract would revert on zero root anyway,

@@ -67,8 +67,8 @@ func main() {
 
 	// Install a JS dispatcher shim so the marketplace-style single-arg call
 	// Plutus.createAccount("ETH") resolves to createAccountOnChain, while
-	// the legacy three-arg createAccount(handle, chainID, name) flow keeps
-	// its original semantics. This is done in JS-land via a wrapper that
+	// the three-arg createAccount(handle, chainID, name) flow keeps its
+	// handle-taking semantics. This is done in JS-land via a wrapper that
 	// inspects arguments.
 	shim := js.Global().Get("Function").New(
 		"plutus",

@@ -217,7 +217,7 @@ func VerifyPRCDeployment(deployCert *PRCDeploymentCertificate, platformCert *Pla
 // and produces the Go source snippet and deployment instructions needed to
 // finalize the canonical PRC addresses.
 //
-// This is the legacy single-key ceremony. For the full trust chain ceremony,
+// This is the single-key ceremony. For the full trust chain ceremony,
 // use GenerateOfflineRoot + GeneratePlatformKey.
 func RunCeremony(outputKeyPath, passphrase string) (*CeremonyResult, error) {
 	if outputKeyPath == "" {
@@ -461,7 +461,7 @@ Next steps:
      Run the same command per chain RPC — each transaction uses the same
      salt + initCode, so every chain ends up with an identical PRC address.
   3. Paste that single address into CanonicalPRCAddress in canonical.go.
-     The legacy per-chain PRC map is populated from it automatically.
+     The per-chain PRC map is populated from it automatically.
   4. Run CertifyPRCDeployment per chain to sign the (txHash, blockNumber)
      certificate — the prcAddress field is identical across all certs.
   5. Tag a new release

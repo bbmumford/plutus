@@ -131,7 +131,7 @@ func SaveKey(path string, key *MaintainerKey, privateKey ed25519.PrivateKey, pas
 }
 
 // LoadKey reads and decrypts a maintainer key from a file.
-// Supports both v1 (SHA256 KDF, legacy) and v2 (Argon2id KDF) key files.
+// Supports both v1 (SHA256 KDF) and v2 (Argon2id KDF) key files.
 func LoadKey(path string, passphrase string) (*MaintainerKey, ed25519.PrivateKey, error) {
 	if path == "" {
 		return nil, nil, errors.New("maintainer/keygen: file path is empty")
@@ -174,7 +174,7 @@ func LoadKey(path string, passphrase string) (*MaintainerKey, ed25519.PrivateKey
 	var decKey []byte
 	switch file.Version {
 	case 1:
-		// Legacy: SHA256 KDF.
+		// Version 1 key files: SHA256 KDF.
 		h := sha256.Sum256([]byte(passphrase))
 		decKey = h[:]
 	case 2:

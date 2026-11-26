@@ -39,8 +39,8 @@ func (w *Wallet) AttachBalanceVerifier(q BalanceQuerier) {
 // smallest unit (wei/sats) together with its decimal count so the caller can
 // render a human-friendly string.
 //
-// PRIVACY NOTE (spec §Privacy): every witness that responds sees
-// (chainID, address, token). v1 does not mix-in dummy addresses. Callers
+// PRIVACY NOTE: every witness that responds sees (chainID, address,
+// token); the query mixes in no dummy addresses. Callers
 // wishing to hide an address should use a derived per-order address.
 func (w *Wallet) Balance(ctx context.Context, account WalletAccount) (*big.Int, uint64, error) {
 	if account.ChainID == "" {

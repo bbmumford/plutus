@@ -66,7 +66,7 @@ var maximumPolicy = VerificationPolicy{
 
 // BalancePolicy is the default quorum policy for witness-mesh balance queries.
 // Balance reads are lower-stakes than transaction confirmations (no funds move
-// as a direct result), so we start with 2-of-3 per the spec design question #2.
+// as a direct result), so two of three witnesses must agree.
 // Callers can override via BalanceVerifier config.
 //
 // NOTE: this is a distinct policy level from the value-scaled PolicyForValue

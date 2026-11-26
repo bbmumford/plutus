@@ -57,9 +57,8 @@ func DeriveProtocolIdentity(seed []byte) (ed25519.PrivateKey, error) {
 // DeriveStoreIdentity derives an Ed25519 private key for store operations
 // using the path m/7777'/1'. This key is used for Mercury store signing.
 //
-// NOTE: The cryptographic-protocol.md spec describes HKDF for these derivations,
-// but the codebase consistently uses BIP32. We keep BIP32 for consistency;
-// the spec should be updated to match.
+// NOTE: every protocol key here derives by BIP32 hardened steps, like
+// DeriveProtocolIdentity, so one seed gives every role its key by path.
 func DeriveStoreIdentity(seed []byte) (ed25519.PrivateKey, error) {
 	if len(seed) != 64 {
 		return nil, fmt.Errorf("plutus/wallet: expected 64-byte seed, got %d", len(seed))
@@ -89,8 +88,7 @@ func DeriveStoreIdentity(seed []byte) (ed25519.PrivateKey, error) {
 // using the path m/7777'/2'. Replicators use this key to sign storage proofs
 // and receipt acknowledgements.
 //
-// NOTE: Uses BIP32 derivation for consistency with DeriveProtocolIdentity,
-// deviating from the HKDF approach described in cryptographic-protocol.md.
+// NOTE: Uses BIP32 derivation, like DeriveProtocolIdentity.
 func DeriveReplicatorKey(seed []byte) (ed25519.PrivateKey, error) {
 	if len(seed) != 64 {
 		return nil, fmt.Errorf("plutus/wallet: expected 64-byte seed, got %d", len(seed))
@@ -119,8 +117,7 @@ func DeriveReplicatorKey(seed []byte) (ed25519.PrivateKey, error) {
 // DeriveArbitratorKey derives an Ed25519 private key for arbitrator operations
 // using the path m/7777'/3'. Arbitrators use this key to sign dispute rulings.
 //
-// NOTE: Uses BIP32 derivation for consistency with DeriveProtocolIdentity,
-// deviating from the HKDF approach described in cryptographic-protocol.md.
+// NOTE: Uses BIP32 derivation, like DeriveProtocolIdentity.
 func DeriveArbitratorKey(seed []byte) (ed25519.PrivateKey, error) {
 	if len(seed) != 64 {
 		return nil, fmt.Errorf("plutus/wallet: expected 64-byte seed, got %d", len(seed))

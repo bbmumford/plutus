@@ -33,7 +33,7 @@ type SettlementResult struct {
 // BalanceAttesterLookup returns the hex-encoded witness pubkeys that should
 // share the witness fee for a given settlement context (typically an escrow
 // address or order ID). Returning an empty slice (or nil) causes the executor
-// to fall back to single-recipient legacy witness payouts. Implementations
+// to fall back to a single-recipient witness payout. Implementations
 // are typically backed by BalanceVerifier.RecentBalanceAttesters.
 type BalanceAttesterLookup func(orderContext string) []string
 

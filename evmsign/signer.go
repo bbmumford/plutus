@@ -9,7 +9,7 @@
 //
 // WHY A SEPARATE LEAF PACKAGE:
 //
-//	The witness package originally owned signLegacyTxEIP155 (private).
+//	The witness package signs fee-distribution payouts with this primitive.
 //	The adapter/evm package depends on witness for the PayoutBuilder
 //	interface, so lifting the primitive into adapter/evm would create
 //	a cycle. plutus/blob (the on-chain escrow client) also needs legacy

@@ -30,8 +30,7 @@ import (
 //     mainnet), so the maintainer-fee defence is enforced at the SIGNER
 //     layer (wallet/signer_btc.go). Honesty assumption: with 2-of-3 multisig
 //     (buyer, seller, arbitrator), at least one canonical-Plutus co-signer
-//     will refuse to sign a release tx that omits the maintainer fee. See
-//     _OTHER/mercury/btc-trust-model.md for the full threat model.
+//     will refuse to sign a release tx that omits the maintainer fee.
 //
 //  3. "Escrow address" in the EVM interface becomes a P2WSH bech32 address
 //     in BTC, derived from (buyer, seller, arbitrator pubkeys, timeout).

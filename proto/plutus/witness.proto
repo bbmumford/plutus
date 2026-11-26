@@ -83,7 +83,7 @@ message WitnessRegistration {
   // payoutAddresses maps chainID -> on-chain payout address. Address format
   // is chain-specific (0x... for EVM, bech32 for BTC, etc.). Required for
   // the witness fee distributor to route fee payouts to the correct on-chain
-  // account per supported chain. Minimum profile field per Mercury DESIGN §4.
+  // account per supported chain. A witness profile carries at least this field.
   map<string, string> payoutAddresses = 8;
   double reputation = 9;            // [0.0, 1.0] continuous reputation score
 }

@@ -11,11 +11,9 @@ import (
 
 // Argon2id parameters (OWASP recommended for key derivation).
 //
-// NOTE: Uses 32-byte salt + 24-byte nonce (XChaCha20-Poly1305), which differs
-// from cryptographic-protocol.md spec (16-byte salt + 12-byte nonce). This
-// implementation is more secure: the larger salt provides better collision
-// resistance for Argon2id, and XChaCha20-Poly1305's 24-byte nonce eliminates
-// nonce-reuse risk for random nonces. Spec should be updated to match.
+// NOTE: Uses a 32-byte salt and a 24-byte nonce (XChaCha20-Poly1305): the
+// larger salt gives Argon2id better collision resistance, and the 24-byte
+// nonce removes the nonce-reuse risk a 12-byte random nonce carries.
 const (
 	argon2Time    = 3
 	argon2Memory  = 64 * 1024 // 64 MB

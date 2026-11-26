@@ -71,7 +71,7 @@ func init() {
 
 	MaintainerBTCAddress = parseMaintainerBTCAddr(embeddedMaintainerBTCAddr)
 
-	// Populate the legacy per-chain PRC map from the single CREATE2 address.
+	// Populate the per-chain PRC map from the single CREATE2 address.
 	// All supported EVM chains resolve to the same deterministic address via
 	// the Safe Singleton Factory. Callers that still dispatch on chainID read
 	// from the map; everyone else should use CanonicalPRCAddress directly.

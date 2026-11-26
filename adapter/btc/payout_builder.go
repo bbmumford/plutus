@@ -17,7 +17,7 @@ import (
 
 // WitnessWindowOpReturnMagic is the 4-byte magic prefix ("WWDW" — Witness
 // Window Distribute Window) the BTC payout builder writes into an OP_RETURN
-// output whenever DESIGN §17 first-writer-wins metadata is available. Off-
+// output whenever first-writer-wins window metadata is available. Off-
 // chain auditors scan a distribution tx's outputs for this prefix to
 // recover (windowID, attestationLogRoot) without decoding proprietary
 // structures.
@@ -122,7 +122,7 @@ type BTCPayoutBuilder struct {
 var _ witness.PayoutBuilder = (*BTCPayoutBuilder)(nil)
 
 // Compile-time assertion: BTCPayoutBuilder exposes the window-aware extension
-// so the distributor can thread DESIGN §17 metadata into the serialized tx
+// so the distributor can thread the window metadata into the serialized tx
 // via an OP_RETURN output.
 var _ witness.WindowAwarePayoutBuilder = (*BTCPayoutBuilder)(nil)
 
@@ -221,7 +221,7 @@ func (b *BTCPayoutBuilder) BuildWindowedBatchPayout(
 // buildBatchPayout is the shared core called by both BuildBatchPayout and
 // BuildWindowedBatchPayout. When windowID+root are non-zero it appends an
 // OP_RETURN output embedding both values so downstream auditors can match
-// this tx to its corresponding DESIGN §17 window. The OP_RETURN adds ~43
+// this tx to its distribution window. The OP_RETURN adds ~43
 // vbytes (1 op_return + 1 push-len + 44 data); the fee estimator accounts
 // for it via an extra output in estimatePayoutVSize.
 func (b *BTCPayoutBuilder) buildBatchPayout(from string, payouts []witness.Payout, windowID uint64, attestationLogRoot [32]byte) (witness.UnsignedBatch, error) {
@@ -326,7 +326,7 @@ func (b *BTCPayoutBuilder) buildBatchPayout(from string, payouts []witness.Payou
 	}
 
 	// Mining fee: first pass assumes the tx includes a change output (and, when
-	// embedWindow is true, an OP_RETURN output carrying the DESIGN §17
+	// embedWindow is true, an OP_RETURN output carrying the window
 	// metadata). Each OP_RETURN output adds one to the output count used by
 	// the vsize estimator — the extra bytes are ~43 vbytes which is close
 	// enough to the p2wpkhOutput heuristic (31 vbytes) for fee-rate purposes.
@@ -359,7 +359,7 @@ func (b *BTCPayoutBuilder) buildBatchPayout(from string, payouts []witness.Payou
 	// If change is below dust, re-estimate fee without the change output and
 	// drop the leftover into the mining fee (it's tiny — below 546 sat). The
 	// OP_RETURN output (if any) stays — it carries audit metadata, not funds,
-	// and removing it would defeat DESIGN §17 anti-omission.
+	// and an attester left out of the window proves its claim against it.
 	if change < b.dustThreshold {
 		numOutputs = len(planned) + opReturnCount
 		estVSize = estimatePayoutVSize(numInputs, numOutputs)
@@ -397,7 +397,7 @@ func (b *BTCPayoutBuilder) buildBatchPayout(from string, payouts []witness.Payou
 	if change > 0 {
 		tx.AddTxOut(&TxOut{Value: change, PkScript: poolScript})
 	}
-	// OP_RETURN output carrying DESIGN §17 metadata goes last so existing
+	// OP_RETURN output carrying the window metadata goes last so existing
 	// output-ordering invariants (recipients first, change next) are
 	// preserved for older auditors that slice outputs by index.
 	if embedWindow {
@@ -476,7 +476,7 @@ func estimatePayoutVSize(numInputs, numOutputs int) int {
 func BigToInt64Sat(v *big.Int) int64 { return bigToSat(v) }
 
 // encodeWitnessWindowOpReturn produces the scriptPubKey for the OP_RETURN
-// output that carries DESIGN §17 first-writer-wins metadata on BTC. Layout:
+// output that carries the first-writer-wins window metadata on BTC. Layout:
 //
 //	OP_RETURN   0x6a
 //	OP_PUSHBYTES_44   0x2c

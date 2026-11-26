@@ -146,7 +146,7 @@ func RegisterDefaultEVMPayoutBuilders(reg *PayoutBuilderRegistry) error {
 // distributor.
 //
 // PRC addresses are not populated on this path — callers that want the
-// DESIGN §17 first-writer-wins entry point (PRC.distributeWindow) should
+// first-writer-wins entry point (PRC.distributeWindow) should
 // use RegisterDefaultEVMPayoutBuildersIntoWithPRC instead.
 func RegisterDefaultEVMPayoutBuildersInto(reg *adapter.Registry) error {
 	return RegisterDefaultEVMPayoutBuildersIntoWithPRC(reg, nil)
@@ -156,7 +156,7 @@ func RegisterDefaultEVMPayoutBuildersInto(reg *adapter.Registry) error {
 // RegisterDefaultEVMPayoutBuildersInto. `prcAddresses` maps chainID → PRC
 // contract hex address; entries with a non-empty value cause the built
 // EVMPayoutBuilder to target PRC.distributeWindow on the window-aware path
-// (see BuildWindowedBatchPayout), enabling DESIGN §17 first-writer-wins.
+// (see BuildWindowedBatchPayout), enabling first-writer-wins.
 //
 // Pass nil to disable the PRC path entirely (equivalent to the no-PRC
 // helper). Entries missing from the map keep PRCAddress empty on their

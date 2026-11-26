@@ -365,7 +365,7 @@ type FeeDistributorHelperConfig struct {
 	Signer witness.FeeDistributionSigner
 
 	// Window is the rolling distribution cadence. Zero means "use the
-	// distributor default" (24 hours per DESIGN §17).
+	// distributor default" (24 hours).
 	Window time.Duration
 
 	// UseMulticall3 enables batch payouts through Multicall3 for EVM groups.

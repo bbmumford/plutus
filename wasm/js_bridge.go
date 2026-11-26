@@ -1020,7 +1020,7 @@ func (b *jsBridge) getAccounts(this js.Value, args []js.Value) interface{} {
 // NOTE: this is registered as "createAccount" on the JS side via main.go in
 // addition to the existing handle-taking createAccount; the JS dispatcher
 // differentiates by arg shape (one string arg = marketplace flow, three args
-// = legacy flow).
+// = the handle-taking flow).
 func (b *jsBridge) createAccountDefault(this js.Value, args []js.Value) interface{} {
 	return promiseWrapper(func() (interface{}, error) {
 		if len(args) < 1 || args[0].IsNull() || args[0].IsUndefined() {
@@ -1307,8 +1307,8 @@ func (b *jsBridge) getTransactions(this js.Value, args []js.Value) interface{} {
 // verifier: it publishes a BalanceQuery, collects K-of-N signed
 // BalanceAttestations, and returns the quorum-agreed value.
 //
-// PRIVACY NOTE: every witness that responds sees the queried address. v1 has
-// no query mixing; see witness-balance-query-guide.md §Privacy.
+// PRIVACY NOTE: every witness that responds sees the queried address; the
+// verifier does no query mixing.
 //
 // Plutus.getBalance(chain, address?) -> Promise<{chain, address, balance,
 // balanceRaw, decimals, blockNumber, balanceUsd}>

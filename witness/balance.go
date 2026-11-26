@@ -147,7 +147,7 @@ type BalanceVerifierConfig struct {
 // via QueryBalance; as a witness it subscribes to requests, reads the chain via
 // its registered providers, and publishes signed attestations via Run.
 //
-// PRIVACY NOTE (spec §Privacy): v1 does NOT implement query mixing or
+// PRIVACY NOTE: the verifier does NOT implement query mixing or
 // dummy-address batching. Every witness sees every queried (address, token).
 // Layer-B per-order keys cover transaction privacy but main-wallet balance
 // queries are observable. Callers who care should use short-lived derived

@@ -23,10 +23,9 @@ import (
 // it raises the collusion bar: any K-1 providers being wrong or offline is
 // tolerated. With 5 endpoints operated by different parties (LlamaRPC, Ankr,
 // publicnode, dRPC, the chain's official RPC) and quorum=3, it is economically
-// and legally implausible for an attacker to lie to a witness.
-//
-// See _OTHER/mercury/portal-network-roadmap.md for the future migration path
-// to fully trustless proofs via the Ethereum Portal Network.
+// and legally implausible for an attacker to lie to a witness. It is still a
+// trust assumption: a Portal Network light client would replace it with
+// trustless proofs.
 //
 // A MultiRPCBalanceProvider is itself a witness.ChainBalanceProvider — it
 // plugs in wherever an EVMBalanceProvider does, and is opt-in via the

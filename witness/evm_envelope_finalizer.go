@@ -17,9 +17,9 @@ import (
 // adapter/evm-produced batch envelope before the signer consumes it.
 //
 // The interface is deliberately narrow so the finalizer can operate without
-// pulling go-ethereum into the witness package (Portal Network + a proper
-// live RPC client are a separate piece of wiring — see
-// TODO(mesh_embed/evm-rpc-client) below).
+// pulling go-ethereum into the witness package (a live RPC client is wired by
+// the runtime that supplies one; StubEVMChainClient below stands in until
+// then).
 type EVMChainClient interface {
 	// PendingNonceAt returns the sender account's next pending transaction
 	// nonce (inclusive of mempool state). address is a 0x-prefixed hex string.
@@ -223,12 +223,12 @@ func (f *EVMEnvelopeFinalizer) finalizeIndividual(
 // endpoint. It exists so callers can stand up a finalizer BEFORE the Portal
 // Network client lands — using it in production will produce invalid
 // transactions (nonce collisions, underpriced gas) so every Finalize call logs
-// a TODO(mesh_embed/evm-rpc-client) breadcrumb.
+// that the stub answered.
 //
-// Real RPC integration is tracked separately:
-//   - mesh_embed: wire the stub to a live Portal Network / go-ethereum client
-//     when Portal Network Phase 1 ships.
-//   - mercury-node: same.
+// TODO: the runtimes that build a finalizer (mercury's runtime/mesh, which
+// both mercury-node and the ORBTR mesh module run) pass this stub until a live
+// EVM client (a Portal Network light client or a go-ethereum RPC client) is
+// available to them.
 type StubEVMChainClient struct {
 	// ChainID identifies the chain this stub is attached to. Used only in log
 	// output; the client otherwise behaves identically for every chain.
@@ -267,10 +267,10 @@ func (s *StubEVMChainClient) warn(op, addr string) {
 		log = nopLogger{}
 	}
 	if addr != "" {
-		log.Printf("TODO(mesh_embed/evm-rpc-client): stub %s on chain %q for %s", op, s.ChainID, addr)
+		log.Printf("evm stub client: %s on chain %q for %s answered with the placeholder value; no live EVM client is wired", op, s.ChainID, addr)
 		return
 	}
-	log.Printf("TODO(mesh_embed/evm-rpc-client): stub %s on chain %q", op, s.ChainID)
+	log.Printf("evm stub client: %s on chain %q answered with the placeholder value; no live EVM client is wired", op, s.ChainID)
 }
 
 // marshalEVMEnvelope re-emits an evmEnvelope in the same compact JSON format

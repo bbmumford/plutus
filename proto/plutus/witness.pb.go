@@ -454,7 +454,7 @@ type WitnessRegistration struct {
 	// payoutAddresses maps chainID -> on-chain payout address. Address format
 	// is chain-specific (0x... for EVM, bech32 for BTC, etc.). Required for
 	// the witness fee distributor to route fee payouts to the correct on-chain
-	// account per supported chain. Minimum profile field per Mercury DESIGN §4.
+	// account per supported chain. A witness profile carries at least this field.
 	PayoutAddresses map[string]string `protobuf:"bytes,8,rep,name=payoutAddresses,proto3" json:"payoutAddresses,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Reputation      float64           `protobuf:"fixed64,9,opt,name=reputation,proto3" json:"reputation,omitempty"` // [0.0, 1.0] continuous reputation score
 	unknownFields   protoimpl.UnknownFields

@@ -125,7 +125,7 @@ type PayoutBuilder interface {
 }
 
 // WindowAwarePayoutBuilder is an optional extension of PayoutBuilder for
-// builders that can embed DESIGN §17 first-writer-wins metadata directly into
+// builders that can embed the first-writer-wins window metadata directly into
 // the emitted transaction payload (EVM: call PRC.distributeWindow rather than
 // Multicall3; BTC: append an OP_RETURN with (windowID, attestationLogRoot)).
 //
@@ -161,7 +161,7 @@ type UnsignedBatch struct {
 	// timestamp truncated to the configured window duration (so two
 	// witnesses that race the same round produce the same WindowID and the
 	// contract-side DistributeWindow(chainID, windowID, ...) rejects the
-	// second call as a replay). See DESIGN.md §17 first-writer-wins.
+	// second call as a replay: the first writer of a window wins).
 	WindowID uint64
 	// AttestationLogRoot is a Merkle root over the (sorted) AttestationIDs
 	// that fed this round's aggregated earnings. It binds the payout batch
@@ -443,7 +443,7 @@ func (d *WitnessFeeDistributor) Run(ctx context.Context, windowStart, windowEnd 
 		return nil, fmt.Errorf("witness/fee_distributor: collect earnings: %w", err)
 	}
 
-	// DESIGN §17 first-writer-wins metadata.
+	// First-writer-wins window metadata.
 	//
 	// windowID is the window-start Unix timestamp truncated to the configured
 	// window duration. Two witnesses racing the same round produce the same
@@ -586,7 +586,7 @@ func (d *WitnessFeeDistributor) LastRoundAt() time.Time {
 // groups can still settle. residual is mutated in place to reflect amounts
 // that stayed in the pool (dust, missing address, cap truncation).
 //
-// windowID and attestationLogRoot are the DESIGN §17 first-writer-wins
+// windowID and attestationLogRoot are the first-writer-wins window
 // metadata computed once per round by Run; processGroup stamps them onto
 // the UnsignedBatch so builders can embed them in calldata (EVM) or in
 // an OP_RETURN output (BTC).
@@ -718,7 +718,7 @@ func (d *WitnessFeeDistributor) processGroup(
 		}
 		return nil, skipped, fmt.Errorf("build batch payout: %w", err)
 	}
-	// Stamp DESIGN §17 first-writer-wins metadata onto the batch even when a
+	// Stamp the first-writer-wins window metadata onto the batch even when a
 	// window-aware builder has already embedded it in calldata, so downstream
 	// audit consumers can read the values off the UnsignedBatch envelope
 	// without having to decode the serialized payload.
@@ -961,7 +961,7 @@ func truncateToWindow(t time.Time, window time.Duration) time.Time {
 // sorted-pair convention: node = keccak256(min(a,b) || max(a,b)). This
 // matches libraries/MerkleProof.sol so the on-chain PRC disputeDistribution
 // gate can verify a Merkle proof against the same root this function
-// produces — see DESIGN §17 anti-omission.
+// produces, so an attester the distribution left out can prove it was owed.
 //
 // Leaves are keccak256(attestationID) so the 32-byte domain boundary between
 // leaf and inner-node hashes is explicit. This is consistent with the OZ

@@ -148,10 +148,10 @@ func (l *EarningLog) Record(
 	sortStrings(keys)
 
 	// Derive a deterministic attestation ID fallback from the breakdown
-	// bytes. Upstream callers that have a real canonical attestation ID
-	// (once the attestation signature chain is wired through settle) should
-	// use RecordWithAttestationID instead; for now this keeps the
-	// distributor's AttestationLogRoot non-zero in the common path.
+	// bytes. A caller that holds a canonical attestation ID uses
+	// RecordWithAttestationID instead; settle's executor records through
+	// Record, and this ID keeps the distributor's AttestationLogRoot
+	// non-zero on that path.
 	attestationID := feeBreakdownAttestationID(orderID, chainID, currency, breakdown)
 
 	for _, witHex := range keys {
@@ -354,7 +354,8 @@ func sortStrings(s []string) { sort.Strings(s) }
 // records, using the OpenZeppelin sorted-pair convention so the root is
 // compatible with libraries/MerkleProof.sol on-chain verification.
 //
-// Algorithm (see DESIGN §17 anti-omission):
+// Algorithm (the root lets an attester the distribution left out prove its
+// attestation was logged, through the PRC's disputeDistribution gate):
 //
 //  1. Collect records with non-empty AttestationID, dedup by ID bytes, and
 //     hash each ID to a 32-byte leaf via keccak256(AttestationID).

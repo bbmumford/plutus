@@ -16,7 +16,7 @@ import (
 // TestBTCPayoutBuilder_EmbedsWindowMetadata confirms that calling the
 // window-aware builder entry point with non-zero (windowID, root) produces
 // a serialized tx whose final OP_RETURN output contains exactly the 44-byte
-// DESIGN §17 payload:
+// window payload:
 //
 //	"WWDW" (4) || windowID BE (8) || attestationLogRoot (32) = 44 bytes
 //
