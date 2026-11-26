@@ -3,6 +3,7 @@ module github.com/bbmumford/plutus
 go 1.25.0
 
 require (
+	github.com/bbmumford/filekind v0.1.2
 	github.com/bbmumford/ledger v0.0.21
 	github.com/bbmumford/ratelimit v0.1.0
 	github.com/bbmumford/whisper v0.0.19
@@ -25,6 +26,13 @@ require (
 	golang.org/x/crypto v0.50.0
 	golang.org/x/term v0.42.0
 	google.golang.org/protobuf v1.36.11
+	turso.tech/database/tursogo v0.8.4
+)
+
+require (
+	github.com/ebitengine/purego v0.9.1 // indirect
+	github.com/tursodatabase/turso-go-platform-libs v0.8.4 // indirect
+	github.com/zeebo/blake3 v0.2.4 // indirect
 )
 
 require (

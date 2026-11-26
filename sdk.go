@@ -9,7 +9,6 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"math/big"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -219,28 +218,16 @@ func New(cfg Config) (*PlutusSDK, error) {
 	// --- Earning log + distribution store (optional, only when DataDir is set) ---
 
 	if cfg.DataDir != "" {
-		earningDir := filepath.Join(cfg.DataDir, "earnings")
-		el, err := witness.NewEarningLog(earningDir)
+		// One witness journal store in DataDir holds both the earning log and
+		// the distribution store, so an operator configuring a single
+		// --data-dir picks up both durability guarantees in one file
+		// (witness.db) to back up.
+		el, ds, err := witness.OpenJournals(cfg.DataDir)
 		if err != nil {
-			return nil, fmt.Errorf("plutus: open earning log: %w", err)
+			return nil, fmt.Errorf("plutus: open witness journals: %w", err)
 		}
 		sdk.EarningLog = el
 		sdk.SettlementExecutor.SetEarningRecorder(el)
-
-		// The distribution store shares DataDir with the earning log so an
-		// operator configuring a single --data-dir picks up both durability
-		// guarantees automatically. Keeping it in a sibling directory
-		// (distributions/) makes backup + log rotation scripts easy to
-		// reason about.
-		distDir := filepath.Join(cfg.DataDir, "distributions")
-		ds, err := witness.NewPersistentDistributionStore(distDir)
-		if err != nil {
-			// Close the earning log we just opened so we don't leak a file
-			// handle when SDK construction fails mid-wire.
-			_ = el.Close()
-			sdk.EarningLog = nil
-			return nil, fmt.Errorf("plutus: open distribution store: %w", err)
-		}
 		sdk.DistributionStore = ds
 	}
 

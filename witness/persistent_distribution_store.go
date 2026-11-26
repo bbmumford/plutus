@@ -5,45 +5,33 @@
 package witness
 
 import (
-	"bufio"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
 )
 
 // PersistentDistributionStore is a crash-recoverable DistributionStore backed
-// by a JSON-lines append log on disk. Each SaveRound appends one line; on
-// process start the full file is replayed into an in-memory index so LoadRound
+// by the witness journal store: the SQLite file <dir>/witness.db stamped as a
+// billing witness journal (see openJournal), which an EarningLog on the same
+// directory shares. Each SaveRound inserts one row, committed before it
+// returns; on open the rows are replayed into an in-memory index so LoadRound
 // is O(1) and matches the in-memory store's latency.
-//
-// Layout: <dir>/distribution.log — each line is a JSON-encoded
-// distributionLogEntry. The file is opened O_APPEND so concurrent writers
-// within one process see line-atomic semantics on all supported filesystems
-// for entries under ~4KB. fsync is called after every append so a crash
-// between SaveRound calls never loses an already-returned write.
-//
-// This mirrors witness.EarningLog's durability pattern — the two logs are
-// sized and paced identically (one write per round per chain, low hundreds
-// per year at 24h windows) so the same on-disk strategy applies.
 //
 // The writer holds a mutex serialising SaveRound; LoadRound is lock-free for
 // reads (sync.RWMutex read side). The in-memory index is authoritative for
-// LoadRound once the file has been replayed; the file is the authoritative
+// LoadRound once the rows have been replayed; the store is the authoritative
 // source across restarts.
 type PersistentDistributionStore struct {
 	dir  string
 	path string
 	// backend is the durable primitive this store delegates I/O to. The
-	// default backend is a file-backed appendLog; tests can inject a fake
-	// backend to induce error paths without touching the filesystem.
+	// default backend is the journal store's rounds table; tests can inject
+	// a fake backend to induce error paths without touching the filesystem.
 	backend distributionBackend
 
 	mu     sync.RWMutex
@@ -52,20 +40,21 @@ type PersistentDistributionStore struct {
 
 // distributionBackend abstracts the durable I/O the store needs. Kept narrow
 // so a fake backend in tests can surface errors at the boundary without
-// touching the filesystem. The default file-backed implementation is
-// fileDistributionBackend below.
+// touching the filesystem. The default implementation is
+// journalDistributionBackend below.
 type distributionBackend interface {
 	// Replay invokes fn for every previously-persisted entry in order. fn
 	// returning an error aborts replay.
 	Replay(fn func(entry distributionLogEntry) error) error
-	// Append writes one entry and fsyncs before returning. Errors surface
-	// to the caller of SaveRound.
+	// Append writes one entry durably before returning. Errors surface to
+	// the caller of SaveRound.
 	Append(entry distributionLogEntry) error
 	// Close releases any underlying handles. Safe to call multiple times.
 	Close() error
 }
 
-// distributionLogEntry is the on-disk form of one persisted round. Keeping it
+// distributionLogEntry is the stored form of one persisted round (a row's
+// entry, and a line of the distribution.log journals the store takes in). Keeping it
 // tagged and distinct from DistributionRoundResult lets us evolve the audit
 // schema independently of the public API — e.g. add a schemaVersion field or
 // separate per-receipt records — without breaking existing logs.
@@ -108,27 +97,38 @@ type persistedSkipped struct {
 
 const distributionLogSchemaVersion = 1
 
-// NewPersistentDistributionStore opens (or creates) a persistent store backed
-// by <dir>/distribution.log. The directory is created if it does not exist.
-// On open the log is replayed into an in-memory index so LoadRound matches
-// the in-memory implementation's latency.
+// distributionJournal is the JSON-lines journal a PersistentDistributionStore
+// kept in its directory before the journal store; it is taken in once.
+const distributionJournal = "distribution.log"
+
+// NewPersistentDistributionStore opens (or creates) a persistent store in
+// dir. The directory is created if it does not exist. On open the stored
+// rounds are replayed into an in-memory index so LoadRound matches the
+// in-memory implementation's latency. A distribution.log journal already in
+// dir is taken into the store once and left on disk.
 //
 // Production deployments should co-locate this directory with the SDK's
-// Config.DataDir — the SDK's NewFeeDistributor helper does this automatically
-// when no explicit Store is supplied.
+// Config.DataDir — the SDK opens it there (OpenJournals) when DataDir is set.
 func NewPersistentDistributionStore(dir string) (*PersistentDistributionStore, error) {
+	return openDistributionStore(dir, distributionJournal)
+}
+
+// openDistributionStore opens the store in dir and takes in the
+// distribution.log journal at dir/legacy (legacy is relative to dir).
+func openDistributionStore(dir, legacy string) (*PersistentDistributionStore, error) {
 	if dir == "" {
 		return nil, errors.New("witness/persistent_distribution_store: dir is empty")
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, fmt.Errorf("witness/persistent_distribution_store: mkdir %q: %w", dir, err)
-	}
-	path := filepath.Join(dir, "distribution.log")
-	backend, err := newFileDistributionBackend(path)
+	ctx := context.Background()
+	j, err := openJournal(ctx, dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("witness/persistent_distribution_store: %w", err)
 	}
-	return newPersistentDistributionStoreWithBackend(dir, path, backend)
+	if err := j.importDistributionJournal(ctx, legacy, filepath.Join(dir, legacy)); err != nil {
+		_ = j.release() // the import's error is the one returned
+		return nil, fmt.Errorf("witness/persistent_distribution_store: take in %s: %w", legacy, err)
+	}
+	return newPersistentDistributionStoreWithBackend(dir, filepath.Join(dir, journalFile), journalDistributionBackend{j: j})
 }
 
 // newPersistentDistributionStoreWithBackend is the test seam. Production
@@ -208,127 +208,26 @@ func (s *PersistentDistributionStore) Close() error {
 	return err
 }
 
-// --- file-backed backend ---------------------------------------------------
+// --- journal-store backend ------------------------------------------------
 
-// fileDistributionBackend is the production backend: a JSON-lines append log
-// with fsync-on-append. One open file handle is shared by all Append calls
-// inside the owning store's serialising mutex.
-type fileDistributionBackend struct {
-	path string
-	mu   sync.Mutex
-	file *os.File
-	w    *bufio.Writer
+// journalDistributionBackend is the production backend: the rounds table of
+// the witness journal store. The store's own primary key refuses a round ID
+// twice, behind SaveRound's in-memory check.
+type journalDistributionBackend struct {
+	j *journalDB
 }
 
-func newFileDistributionBackend(path string) (*fileDistributionBackend, error) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o644)
-	if err != nil {
-		return nil, fmt.Errorf("witness/persistent_distribution_store: open %q: %w", path, err)
-	}
-	return &fileDistributionBackend{
-		path: path,
-		file: f,
-		w:    bufio.NewWriter(f),
-	}, nil
+func (b journalDistributionBackend) Replay(fn func(entry distributionLogEntry) error) error {
+	return b.j.distributionEntries(context.Background(), fn)
 }
 
-// Replay reads the file front-to-back, invoking fn once per line. Blank lines
-// are skipped. A decode error aborts replay so an operator notices schema
-// drift before the store starts serving traffic.
-func (b *fileDistributionBackend) Replay(fn func(entry distributionLogEntry) error) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.file == nil {
-		return errors.New("witness/persistent_distribution_store: backend closed")
-	}
-	// Flush any buffered writes before replaying so the caller observes all
-	// prior Appends even if some happened before Replay was invoked.
-	if b.w != nil {
-		if err := b.w.Flush(); err != nil {
-			return fmt.Errorf("pre-replay flush: %w", err)
-		}
-	}
-	// Use a fresh reader at offset 0; don't disturb the writer's append
-	// position.
-	f, err := os.Open(b.path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("open for replay: %w", err)
-	}
-	// Opened only for reading: a close has nothing to flush.
-	defer func() { _ = f.Close() }()
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-		var entry distributionLogEntry
-		if err := json.Unmarshal(line, &entry); err != nil {
-			return fmt.Errorf("unmarshal entry: %w", err)
-		}
-		if err := fn(entry); err != nil {
-			return err
-		}
-	}
-	if err := scanner.Err(); err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("scan: %w", err)
-	}
-	return nil
+func (b journalDistributionBackend) Append(entry distributionLogEntry) error {
+	return b.j.insertDistribution(context.Background(), entry)
 }
 
-func (b *fileDistributionBackend) Append(entry distributionLogEntry) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.file == nil {
-		return errors.New("witness/persistent_distribution_store: backend closed")
-	}
-	buf, err := json.Marshal(&entry)
-	if err != nil {
-		return fmt.Errorf("marshal entry: %w", err)
-	}
-	if _, err := b.w.Write(buf); err != nil {
-		return fmt.Errorf("write: %w", err)
-	}
-	if err := b.w.WriteByte('\n'); err != nil {
-		return fmt.Errorf("write newline: %w", err)
-	}
-	if err := b.w.Flush(); err != nil {
-		return fmt.Errorf("flush: %w", err)
-	}
-	if err := b.file.Sync(); err != nil {
-		return fmt.Errorf("fsync: %w", err)
-	}
-	return nil
+func (b journalDistributionBackend) Close() error {
+	return b.j.release()
 }
-
-func (b *fileDistributionBackend) Close() error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.file == nil {
-		return nil
-	}
-	var firstErr error
-	if b.w != nil {
-		if err := b.w.Flush(); err != nil {
-			firstErr = err
-		}
-	}
-	if err := b.file.Sync(); err != nil && firstErr == nil {
-		firstErr = err
-	}
-	if err := b.file.Close(); err != nil && firstErr == nil {
-		firstErr = err
-	}
-	b.file = nil
-	b.w = nil
-	return firstErr
-}
-
-// --- encoding / decoding ---------------------------------------------------
 
 func roundToEntry(round *DistributionRoundResult) (distributionLogEntry, error) {
 	entry := distributionLogEntry{

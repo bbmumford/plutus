@@ -5,14 +5,12 @@
 package witness
 
 import (
-	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -21,35 +19,28 @@ import (
 	"github.com/bbmumford/plutus/adapter"
 )
 
-// EarningLog is a durable append-only record of witness fee earnings per
-// settled order. It satisfies AttestationSource so it can be plugged directly
-// into WitnessFeeDistributor as the read side of per-order settlement fees.
+// EarningLog is a durable record of witness fee earnings per settled order. It
+// satisfies AttestationSource so it can be plugged directly into
+// WitnessFeeDistributor as the read side of per-order settlement fees.
 //
-// Layout on disk is a single JSON-lines file (earnings.log) inside the given
-// directory. Each line is one EarningLogEntry (the wire representation of an
-// EarningRecord — big.Int is serialised as a decimal string to preserve
-// arbitrary precision). Writes fsync on every Record to survive crashes; the
-// file is opened O_APPEND so concurrent writes from a single process are
-// atomic at OS granularity for typical line sizes (<4KB) on all supported
-// filesystems.
-//
-// CollectEarnings scans the entire file on each call. That is O(N) in the
-// number of records ever written, which is acceptable for the current scale
-// (one record per settled order per witness per currency — low hundreds per
-// day on a busy node). A future optimisation can add a time-indexed sidecar.
+// Its rows live in the witness journal store, the SQLite file
+// <dir>/witness.db stamped as a billing witness journal (see openJournal),
+// which a PersistentDistributionStore on the same directory shares. Each
+// EarningLogEntry is one row (big.Int amounts as decimal strings, so values
+// past int64 keep their precision); a Record's rows commit in one
+// transaction, and CollectEarnings reads only its window, through the
+// settledAt index.
 type EarningLog struct {
-	dir  string
-	path string
+	dir string
 
-	mu   sync.Mutex
-	file *os.File
-	w    *bufio.Writer
+	mu      sync.Mutex
+	journal *journalDB // nil once the log is closed
 }
 
-// EarningLogEntry is the serialised form of a single EarningRecord. Amount is
-// kept as a decimal string so the JSON is portable across languages and we
-// don't lose precision for values that overflow int64 (common on EVM chains
-// where fees are denominated in wei).
+// EarningLogEntry is the stored form of a single EarningRecord. Amount is kept
+// as a decimal string so we don't lose precision for values that overflow
+// int64 (common on EVM chains where fees are denominated in wei). Its JSON
+// form is the line format of the earnings.log journals NewEarningLog takes in.
 type EarningLogEntry struct {
 	OrderID       string    `json:"orderId"`
 	ChainID       string    `json:"chainId"`
@@ -60,49 +51,70 @@ type EarningLogEntry struct {
 	SettledAt     time.Time `json:"settledAt"`
 }
 
-// NewEarningLog opens (or creates) an EarningLog backed by <dir>/earnings.log.
-// The directory is created if it does not exist. The log is opened in append
-// mode so re-opening preserves prior records.
+// earningsJournal is the JSON-lines journal an EarningLog kept in its
+// directory before the journal store; NewEarningLog takes it in once.
+const earningsJournal = "earnings.log"
+
+// NewEarningLog opens (or creates) the earning log in dir. The directory is
+// created if it does not exist, and reopening keeps every record written
+// before. An earnings.log journal already in dir is taken into the store once
+// and left on disk.
 func NewEarningLog(dir string) (*EarningLog, error) {
+	return openEarningLog(dir, earningsJournal)
+}
+
+// OpenJournals opens dir's witness journal store once and returns the
+// earning log and the distribution store kept in it. The JSON-lines journals
+// a node kept under dir before the store (earnings/earnings.log and
+// distributions/distribution.log) are taken in once and left on disk. Close
+// both; the file closes with the second.
+func OpenJournals(dir string) (*EarningLog, *PersistentDistributionStore, error) {
+	el, err := openEarningLog(dir, filepath.Join("earnings", earningsJournal))
+	if err != nil {
+		return nil, nil, err
+	}
+	ds, err := openDistributionStore(dir, filepath.Join("distributions", distributionJournal))
+	if err != nil {
+		_ = el.Close() // the distribution store's error is the one returned
+		return nil, nil, err
+	}
+	return el, ds, nil
+}
+
+// openEarningLog opens the earning log in dir and takes in the earnings.log
+// journal at dir/legacy (legacy is relative to dir).
+func openEarningLog(dir, legacy string) (*EarningLog, error) {
 	if dir == "" {
 		return nil, errors.New("witness/earning_log: dir is empty")
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, fmt.Errorf("witness/earning_log: mkdir %q: %w", dir, err)
-	}
-	path := filepath.Join(dir, "earnings.log")
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o644)
+	ctx := context.Background()
+	j, err := openJournal(ctx, dir)
 	if err != nil {
-		return nil, fmt.Errorf("witness/earning_log: open %q: %w", path, err)
+		return nil, fmt.Errorf("witness/earning_log: %w", err)
 	}
-	return &EarningLog{
-		dir:  dir,
-		path: path,
-		file: f,
-		w:    bufio.NewWriter(f),
-	}, nil
+	if err := j.importEarningsJournal(ctx, legacy, filepath.Join(dir, legacy)); err != nil {
+		_ = j.release() // the import's error is the one returned
+		return nil, fmt.Errorf("witness/earning_log: take in %s: %w", legacy, err)
+	}
+	return &EarningLog{dir: dir, journal: j}, nil
 }
 
 // Record flattens a FeeBreakdown for a single order into one EarningLogEntry
-// per witness (keyed by hex pubkey in breakdown.WitnessFees) and appends them
-// atomically. If breakdown.WitnessFees is empty or nil, Record is a no-op —
-// the aggregate WitnessFee is payable to a single tx witness and there is
-// nothing to distribute pro-rata.
+// per witness (keyed by hex pubkey in breakdown.WitnessFees) and stores them
+// in one transaction. If breakdown.WitnessFees is empty or nil, Record is a
+// no-op — the aggregate WitnessFee is payable to a single tx witness and there
+// is nothing to distribute pro-rata.
 //
 // chainID and currency scope the record to a (chain, asset) pair so the
 // distributor can group correctly downstream. They are not present on
 // FeeBreakdown itself, so callers (typically settle.Executor) must supply
 // them alongside the breakdown.
 //
-// The AttestationID on every written EarningLogEntry is derived from the
-// FeeBreakdown's deterministic serialisation (see feeBreakdownAttestationID)
-// when no canonical attestation ID has surfaced through the settle flow
-// yet. This is a documented fallback: the distributor uses AttestationIDs
-// to build the window-level Merkle root threaded into UnsignedBatch.
-// AttestationLogRoot, and the fallback keeps that root non-zero for the
-// common case while the attestation-signature chain is still being wired.
-// Once settle.Executor passes a real canonical ID through the recorder
-// interface, we'll flip to using that instead.
+// The AttestationID on every entry is derived from the FeeBreakdown's
+// deterministic serialisation (see feeBreakdownAttestationID): the
+// distributor uses AttestationIDs to build the window-level Merkle root
+// threaded into UnsignedBatch.AttestationLogRoot, and this ID keeps that root
+// non-zero for every recorded settlement.
 func (l *EarningLog) Record(
 	ctx context.Context,
 	orderID string,
@@ -131,35 +143,23 @@ func (l *EarningLog) Record(
 		at = time.Now().UTC()
 	}
 
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.file == nil {
-		return errors.New("witness/earning_log: log is closed")
-	}
-
-	// Encode each witness's entry and append. Write order is deterministic by
-	// sorted hex key — not strictly required for correctness (CollectEarnings
-	// re-groups) but makes the file diff-friendly for audit.
+	// Entries go in sorted by hex key, so a settlement's rows are stored in
+	// one deterministic order.
 	keys := make([]string, 0, len(breakdown.WitnessFees))
 	for k := range breakdown.WitnessFees {
 		keys = append(keys, k)
 	}
 	sortStrings(keys)
 
-	// Derive a deterministic attestation ID fallback from the breakdown
-	// bytes. A caller that holds a canonical attestation ID uses
-	// RecordWithAttestationID instead; settle's executor records through
-	// Record, and this ID keeps the distributor's AttestationLogRoot
-	// non-zero on that path.
 	attestationID := feeBreakdownAttestationID(orderID, chainID, currency, breakdown)
 
+	entries := make([]EarningLogEntry, 0, len(keys))
 	for _, witHex := range keys {
 		amt := breakdown.WitnessFees[witHex]
 		if amt == nil || amt.Sign() <= 0 {
 			continue
 		}
-		entry := EarningLogEntry{
+		entries = append(entries, EarningLogEntry{
 			OrderID:       orderID,
 			ChainID:       chainID,
 			Currency:      currency,
@@ -167,35 +167,31 @@ func (l *EarningLog) Record(
 			Amount:        amt.String(),
 			AttestationID: attestationID,
 			SettledAt:     at.UTC(),
-		}
-		buf, err := json.Marshal(&entry)
-		if err != nil {
-			return fmt.Errorf("witness/earning_log: marshal: %w", err)
-		}
-		if _, err := l.w.Write(buf); err != nil {
-			return fmt.Errorf("witness/earning_log: write: %w", err)
-		}
-		if err := l.w.WriteByte('\n'); err != nil {
-			return fmt.Errorf("witness/earning_log: write newline: %w", err)
-		}
+		})
 	}
-	if err := l.w.Flush(); err != nil {
-		return fmt.Errorf("witness/earning_log: flush: %w", err)
+	if len(entries) == 0 {
+		return nil
 	}
-	if err := l.file.Sync(); err != nil {
-		return fmt.Errorf("witness/earning_log: fsync: %w", err)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.journal == nil {
+		return errors.New("witness/earning_log: log is closed")
+	}
+	if err := l.journal.insertEarnings(ctx, entries); err != nil {
+		return fmt.Errorf("witness/earning_log: write: %w", err)
 	}
 	return nil
 }
 
-// CollectEarnings implements AttestationSource. It reads the full log, filters
-// to records in [start, end) by SettledAt, and groups matching entries by
-// (chainID, currency, hex(pubkey)), summing Amount.
+// CollectEarnings implements AttestationSource. It reads the records settled
+// in [start, end) and groups them by (chainID, currency, hex(pubkey)),
+// summing Amount.
 //
-// AttestationID is accumulated from all matching raw entries (may be empty).
-// OrderID and SettledAt on the returned record reference the most recent
-// contributing entry, which is sufficient for audit since the individual
-// per-order entries remain on disk.
+// AttestationID is the earliest-settled matching entry's (may be empty). OrderID and
+// SettledAt on the returned record reference the most recent contributing
+// entry, which is sufficient for audit since the individual per-order entries
+// stay in the store.
 func (l *EarningLog) CollectEarnings(
 	ctx context.Context,
 	start, end time.Time,
@@ -210,29 +206,16 @@ func (l *EarningLog) CollectEarnings(
 		return nil, fmt.Errorf("witness/earning_log: end %s before start %s", end, start)
 	}
 
-	// Serialise against writers so we see a consistent on-disk snapshot.
 	l.mu.Lock()
-	if l.file == nil {
-		l.mu.Unlock()
+	j := l.journal
+	l.mu.Unlock()
+	if j == nil {
 		return nil, errors.New("witness/earning_log: log is closed")
 	}
-	// Flush any buffered writer output before reading.
-	if err := l.w.Flush(); err != nil {
-		l.mu.Unlock()
-		return nil, fmt.Errorf("witness/earning_log: pre-read flush: %w", err)
-	}
-	path := l.path
-	l.mu.Unlock()
-
-	f, err := os.Open(path)
+	entries, err := j.earningsIn(ctx, start, end)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("witness/earning_log: open for read: %w", err)
+		return nil, fmt.Errorf("witness/earning_log: read: %w", err)
 	}
-	// Opened only for reading: a close has nothing to flush.
-	defer func() { _ = f.Close() }()
 
 	type groupKey struct {
 		chainID  string
@@ -246,29 +229,7 @@ func (l *EarningLog) CollectEarnings(
 		lastSettledAt time.Time
 	}
 	groups := make(map[groupKey]*groupVal)
-
-	scanner := bufio.NewScanner(f)
-	// Allow long JSON lines (default is 64KB; entries are <1KB but be defensive).
-	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-		var entry EarningLogEntry
-		if err := json.Unmarshal(line, &entry); err != nil {
-			return nil, fmt.Errorf("witness/earning_log: unmarshal: %w", err)
-		}
-		// Time window: [start, end) — inclusive start, exclusive end.
-		if entry.SettledAt.Before(start) {
-			continue
-		}
-		if !entry.SettledAt.Before(end) {
-			continue
-		}
+	for _, entry := range entries {
 		amt, ok := new(big.Int).SetString(entry.Amount, 10)
 		if !ok {
 			return nil, fmt.Errorf("witness/earning_log: invalid amount %q", entry.Amount)
@@ -292,15 +253,12 @@ func (l *EarningLog) CollectEarnings(
 			g.lastOrderID = entry.OrderID
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("witness/earning_log: scan: %w", err)
-	}
 
 	out := make([]EarningRecord, 0, len(groups))
 	for gk, g := range groups {
 		// Flatten per-entry attestations into a single audit handle. Keeping
 		// only the first one matches the EarningRecord schema (one []byte);
-		// the full list stays on disk in the raw log.
+		// the full list stays in the store.
 		var att []byte
 		if len(g.attestations) > 0 {
 			att = g.attestations[0]
@@ -318,32 +276,21 @@ func (l *EarningLog) CollectEarnings(
 	return out, nil
 }
 
-// Close flushes and closes the underlying file. Subsequent Record calls
-// return an error. Safe to call multiple times.
+// Close releases the log's hold on the journal store (the store closes when
+// its last holder does). Subsequent Record calls return an error. Safe to
+// call multiple times.
 func (l *EarningLog) Close() error {
 	if l == nil {
 		return nil
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.file == nil {
+	if l.journal == nil {
 		return nil
 	}
-	var firstErr error
-	if l.w != nil {
-		if err := l.w.Flush(); err != nil {
-			firstErr = err
-		}
-	}
-	if err := l.file.Sync(); err != nil && firstErr == nil {
-		firstErr = err
-	}
-	if err := l.file.Close(); err != nil && firstErr == nil {
-		firstErr = err
-	}
-	l.file = nil
-	l.w = nil
-	return firstErr
+	err := l.journal.release()
+	l.journal = nil
+	return err
 }
 
 // sortStrings is a tiny local shim that delegates to sort.Strings. Kept as a
