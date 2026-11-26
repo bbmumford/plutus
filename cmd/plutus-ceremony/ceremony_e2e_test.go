@@ -200,7 +200,9 @@ func TestLookupPassphraseFromEnv(t *testing.T) {
 
 	// Unset env var → error.
 	const missingVar = "PLUTUS_CEREMONY_TEST_MISSING_VAR"
-	os.Unsetenv(missingVar)
+	if err := os.Unsetenv(missingVar); err != nil {
+		t.Fatalf("os.Unsetenv: %v", err)
+	}
 	if _, used, err := lookupPassphraseFromEnv(missingVar); err == nil || !used {
 		t.Errorf("missing env var should error; used=%v err=%v", used, err)
 	}

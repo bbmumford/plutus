@@ -306,7 +306,7 @@ func TestOpenChallengeAt_EndToEnd(t *testing.T) {
 	if !bytes.Equal(tx.Data, EncodeOpenChallenge(nonce, expected)) {
 		t.Errorf("calldata mismatch:\n got: %s", hex.EncodeToString(tx.Data))
 	}
-	if strings.ToLower(tx.To) != strings.ToLower("0xcA11bde05977b3631167028862bE2a173976CA11") {
+	if !strings.EqualFold(tx.To, "0xcA11bde05977b3631167028862bE2a173976CA11") {
 		t.Errorf("To: %s", tx.To)
 	}
 }

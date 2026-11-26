@@ -140,7 +140,7 @@ func TestAddressFromPrivKey_ValidatesKey(t *testing.T) {
 	// Known expected checksum for this key (EIP-155 book vector):
 	// https://ethereum.github.io/execution-specs/  (cross-reference).
 	want := "0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F"
-	if strings.ToLower(addr) != strings.ToLower(want) {
+	if !strings.EqualFold(addr, want) {
 		t.Errorf("address = %s, want (case-insensitive) %s", addr, want)
 	}
 }

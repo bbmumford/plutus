@@ -45,7 +45,11 @@ func TestEarningLog_RecordCollectRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEarningLog: %v", err)
 	}
-	defer log.Close()
+	defer func() {
+		if err := log.Close(); err != nil {
+			t.Errorf("log.Close: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	at := time.Date(2026, 4, 16, 12, 0, 0, 0, time.UTC)
@@ -81,7 +85,11 @@ func TestEarningLog_TimeWindowFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEarningLog: %v", err)
 	}
-	defer log.Close()
+	defer func() {
+		if err := log.Close(); err != nil {
+			t.Errorf("log.Close: %v", err)
+		}
+	}()
 	ctx := context.Background()
 
 	base := time.Date(2026, 4, 16, 12, 0, 0, 0, time.UTC)
@@ -119,7 +127,11 @@ func TestEarningLog_GroupingAcrossOrders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEarningLog: %v", err)
 	}
-	defer log.Close()
+	defer func() {
+		if err := log.Close(); err != nil {
+			t.Errorf("log.Close: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	at := time.Date(2026, 4, 16, 12, 0, 0, 0, time.UTC)
 
@@ -169,7 +181,11 @@ func TestEarningLog_Concurrent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEarningLog: %v", err)
 	}
-	defer log.Close()
+	defer func() {
+		if err := log.Close(); err != nil {
+			t.Errorf("log.Close: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	base := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
@@ -262,7 +278,11 @@ func TestEarningLog_PersistenceAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open 2: %v", err)
 	}
-	defer log2.Close()
+	defer func() {
+		if err := log2.Close(); err != nil {
+			t.Errorf("log2.Close: %v", err)
+		}
+	}()
 
 	err = log2.Record(ctx, "order-3", "ethereum", "USDC", at.Add(2*time.Minute),
 		mustBreakdown(map[string]*big.Int{"aa": big.NewInt(50)}))
@@ -295,7 +315,11 @@ func TestEarningLog_EmptyWitnessFeesIsNoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEarningLog: %v", err)
 	}
-	defer log.Close()
+	defer func() {
+		if err := log.Close(); err != nil {
+			t.Errorf("log.Close: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	at := time.Now().UTC()
@@ -326,7 +350,11 @@ func TestEarningLog_LargeAmountPrecision(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEarningLog: %v", err)
 	}
-	defer log.Close()
+	defer func() {
+		if err := log.Close(); err != nil {
+			t.Errorf("log.Close: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	at := time.Now().UTC()

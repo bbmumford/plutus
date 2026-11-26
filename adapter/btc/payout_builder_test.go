@@ -427,12 +427,9 @@ func TestBTCPayoutBuilder_ImplementsWitnessPayoutBuilder(t *testing.T) {
 	}}
 	b := newTestPayoutBuilder(t, utxos)
 
-	// Compile-time assertion is in payout_builder.go; re-check at runtime
-	// so the registry's `any`-typed storage path is also exercised.
+	// The registry stores builders as witness.PayoutBuilder; build through
+	// that interface so the interface path is exercised.
 	var iface witness.PayoutBuilder = b
-	if iface == nil {
-		t.Fatal("builder does not satisfy witness.PayoutBuilder")
-	}
 	batch, err := iface.BuildBatchPayout(testPoolAddr, []witness.Payout{
 		newPayout(testPayoutSeller, 500_000),
 	}, false)

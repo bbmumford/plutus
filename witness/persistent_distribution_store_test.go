@@ -24,7 +24,11 @@ func TestPersistentDistributionStore_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPersistentDistributionStore: %v", err)
 	}
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("s.Close: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 
@@ -71,7 +75,11 @@ func TestPersistentDistributionStore_DuplicateRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPersistentDistributionStore: %v", err)
 	}
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("s.Close: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	round := sampleRound("dup")
@@ -115,7 +123,11 @@ func TestPersistentDistributionStore_CrashRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open second store: %v", err)
 	}
-	defer s2.Close()
+	defer func() {
+		if err := s2.Close(); err != nil {
+			t.Errorf("s2.Close: %v", err)
+		}
+	}()
 
 	for _, id := range []string{"A", "B"} {
 		got, err := s2.LoadRound(ctx, id)
@@ -149,7 +161,11 @@ func TestPersistentDistributionStore_CrashRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open third store: %v", err)
 	}
-	defer s3.Close()
+	defer func() {
+		if err := s3.Close(); err != nil {
+			t.Errorf("s3.Close: %v", err)
+		}
+	}()
 	for _, id := range []string{"A", "B", "C"} {
 		got, err := s3.LoadRound(ctx, id)
 		if err != nil {
@@ -205,7 +221,11 @@ func TestPersistentDistributionStore_ConcurrentDifferentRounds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reopen: %v", err)
 	}
-	defer s2.Close()
+	defer func() {
+		if err := s2.Close(); err != nil {
+			t.Errorf("s2.Close: %v", err)
+		}
+	}()
 	for i := 0; i < n; i++ {
 		id := fmt.Sprintf("r-%d", i)
 		got, err := s2.LoadRound(ctx, id)
@@ -228,7 +248,11 @@ func TestPersistentDistributionStore_ConcurrentSameRoundIdempotent(t *testing.T)
 	if err != nil {
 		t.Fatalf("NewPersistentDistributionStore: %v", err)
 	}
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("s.Close: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	const n = 16
@@ -279,13 +303,13 @@ func TestPersistentDistributionStore_BackendAppendFail(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	fake.setAppendErr(errors.New("disk full"))
+	fake.setAppendErr(errInjectedAppend)
 	err = s.SaveRound(ctx, sampleRound("rs"))
 	if err == nil {
 		t.Fatal("want backend error, got nil")
 	}
-	if !errors.Is(err, errInjectedAppend) && err.Error() == "" {
-		// We wrapped the injected error; check the chain contains our sentinel.
+	if !errors.Is(err, errInjectedAppend) {
+		t.Fatalf("SaveRound error %v does not wrap the backend's append error", err)
 	}
 	// The in-memory index must NOT have the round — otherwise a restart-
 	// induced replay would miss it and a retry would be silently suppressed.
@@ -327,7 +351,11 @@ func TestPersistentDistributionStore_NilRound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPersistentDistributionStore: %v", err)
 	}
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("s.Close: %v", err)
+		}
+	}()
 	if err := s.SaveRound(context.Background(), nil); err == nil {
 		t.Fatal("want nil-round error")
 	}
