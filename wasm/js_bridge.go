@@ -36,22 +36,22 @@ type jsBridge struct {
 	mu sync.RWMutex
 
 	// Handle counters
-	nextWalletHandle  atomic.Int64
-	nextEscrowHandle  atomic.Int64
+	nextWalletHandle atomic.Int64
+	nextEscrowHandle atomic.Int64
 
 	// Handle maps
-	wallets       map[int64]*walletState
-	escrowMgrs    map[int64]*escrowState
+	wallets    map[int64]*walletState
+	escrowMgrs map[int64]*escrowState
 
 	// Shared services
-	engine        *whisper.Engine
-	dirCache      *cache.DirectoryCache
-	witnessReg    *witness.WitnessRegistry
-	verifier      *witness.MeshVerifier
-	balanceVerif  *witness.BalanceVerifier
-	broadcast     *witness.BroadcastService
-	arbRegistry   *arbitrator.ArbitratorRegistry
-	repService    *reputation.ReputationService
+	engine       *whisper.Engine
+	dirCache     *cache.DirectoryCache
+	witnessReg   *witness.WitnessRegistry
+	verifier     *witness.MeshVerifier
+	balanceVerif *witness.BalanceVerifier
+	broadcast    *witness.BroadcastService
+	arbRegistry  *arbitrator.ArbitratorRegistry
+	repService   *reputation.ReputationService
 
 	// In-memory wallet transaction log for getTransactions(). Kept simple:
 	// no persistence, cleared on page reload.
@@ -86,10 +86,10 @@ func newJSBridge() *jsBridge {
 	repSvc := reputation.NewReputationService(engine, dirCache)
 
 	return &jsBridge{
-		wallets:     make(map[int64]*walletState),
-		escrowMgrs:  make(map[int64]*escrowState),
-		engine:      engine,
-		dirCache:    dirCache,
+		wallets:      make(map[int64]*walletState),
+		escrowMgrs:   make(map[int64]*escrowState),
+		engine:       engine,
+		dirCache:     dirCache,
 		witnessReg:   witnessReg,
 		verifier:     meshVerifier,
 		balanceVerif: balanceVerifier,
@@ -1211,12 +1211,12 @@ type txRecord struct {
 	TxHash       string    `json:"txHash"`
 	ChainID      string    `json:"chainID"`
 	Chain        string    `json:"chain"`
-	Direction    string    `json:"direction"`   // "sent" | "received"
-	Amount       string    `json:"amount"`      // display string incl. currency
+	Direction    string    `json:"direction"` // "sent" | "received"
+	Amount       string    `json:"amount"`    // display string incl. currency
 	Counterparty string    `json:"counterparty"`
 	BlockNumber  uint64    `json:"blockNumber"`
 	Timestamp    time.Time `json:"timestamp"`
-	Status       string    `json:"status"`      // "pending" | "confirmed"
+	Status       string    `json:"status"` // "pending" | "confirmed"
 }
 
 // recordTx appends to the in-memory tx log (kept simple: no persistence).
@@ -1259,19 +1259,19 @@ func (b *jsBridge) getTransactions(this js.Value, args []js.Value) interface{} {
 		// Render into the shape the marketplace UI consumes:
 		// {id, type, amount, to, time, status}
 		type view struct {
-			ID          string `json:"id"`
-			TxHash      string `json:"txHash"`
-			ChainID     string `json:"chainID"`
-			Chain       string `json:"chain"`
-			Type        string `json:"type"`
-			Direction   string `json:"direction"`
-			Amount      string `json:"amount"`
-			To          string `json:"to"`
+			ID           string `json:"id"`
+			TxHash       string `json:"txHash"`
+			ChainID      string `json:"chainID"`
+			Chain        string `json:"chain"`
+			Type         string `json:"type"`
+			Direction    string `json:"direction"`
+			Amount       string `json:"amount"`
+			To           string `json:"to"`
 			Counterparty string `json:"counterparty"`
-			Time        string `json:"time"`
-			Timestamp   int64  `json:"timestamp"`
-			BlockNumber uint64 `json:"blockNumber"`
-			Status      string `json:"status"`
+			Time         string `json:"time"`
+			Timestamp    int64  `json:"timestamp"`
+			BlockNumber  uint64 `json:"blockNumber"`
+			Status       string `json:"status"`
 		}
 
 		out := make([]view, 0, len(records))
@@ -1588,9 +1588,9 @@ func (v *wasmMeshVerifier) AttestEscrowState(ctx context.Context, chainID string
 	}
 	// Convert witness.EscrowSnapshot to escrow.EscrowSnapshot
 	return &escrow.EscrowSnapshot{
-		ChainID:      chainID,
-		EscrowAddr:   escrowAddr,
-		State:        escrow.OnChainEscrowState{
+		ChainID:    chainID,
+		EscrowAddr: escrowAddr,
+		State: escrow.OnChainEscrowState{
 			Buyer:        snap.Buyer,
 			Seller:       snap.Seller,
 			Arbitrator:   snap.Arbitrator,

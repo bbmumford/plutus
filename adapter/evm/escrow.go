@@ -48,9 +48,9 @@ var (
 // EscrowBinding provides Go bindings to the PlutusEscrow Solidity contract.
 // All interactions go through the EVMClient (and thus the witness mesh).
 type EscrowBinding struct {
-	client    *EVMClient
-	token     *ERC20
-	prcAddr   string
+	client  *EVMClient
+	token   *ERC20
+	prcAddr string
 
 	// BlockTime is the average block time in seconds for this chain.
 	// Used to convert timeout durations to absolute block numbers.
@@ -86,9 +86,10 @@ const DefaultBlockTime uint64 = 2
 // contract. The bytecode includes constructor arguments ABI-encoded at the end.
 //
 // Solidity constructor params (11 args):
-//   _prc, _token, _buyer, _seller, _amount, _timeoutBlock,
-//   _receiptHash, _witnessHashes[], _serviceProviderBPS,
-//   _serviceProviderPayout, _arbitratorBPS
+//
+//	_prc, _token, _buyer, _seller, _amount, _timeoutBlock,
+//	_receiptHash, _witnessHashes[], _serviceProviderBPS,
+//	_serviceProviderPayout, _arbitratorBPS
 func (b *EscrowBinding) ConstructEscrow(params adapter.EscrowParams) (*adapter.UnsignedTx, error) {
 	return b.ConstructEscrowCtx(context.Background(), params)
 }
@@ -140,21 +141,21 @@ func (b *EscrowBinding) ConstructEscrowCtx(ctx context.Context, params adapter.E
 	witnessOffset := big.NewInt(int64(11 * 32))
 
 	args := make([]byte, 0, 512)
-	args = append(args, padAddress(params.PRCAddress)...)                        // slot 0: _prc
-	args = append(args, padAddress(b.token.Address())...)                        // slot 1: _token
-	args = append(args, padAddress(params.Buyer)...)                             // slot 2: _buyer
-	args = append(args, padAddress(params.Seller)...)                            // slot 3: _seller
-	args = append(args, padUint256(params.Amount)...)                            // slot 4: _amount
-	args = append(args, padUint256(new(big.Int).SetUint64(timeoutBlock))...)     // slot 5: _timeoutBlock
-	args = append(args, receiptPadded...)                                         // slot 6: _receiptHash
-	args = append(args, padUint256(witnessOffset)...)                             // slot 7: offset to _witnessHashes
+	args = append(args, padAddress(params.PRCAddress)...)                            // slot 0: _prc
+	args = append(args, padAddress(b.token.Address())...)                            // slot 1: _token
+	args = append(args, padAddress(params.Buyer)...)                                 // slot 2: _buyer
+	args = append(args, padAddress(params.Seller)...)                                // slot 3: _seller
+	args = append(args, padUint256(params.Amount)...)                                // slot 4: _amount
+	args = append(args, padUint256(new(big.Int).SetUint64(timeoutBlock))...)         // slot 5: _timeoutBlock
+	args = append(args, receiptPadded...)                                            // slot 6: _receiptHash
+	args = append(args, padUint256(witnessOffset)...)                                // slot 7: offset to _witnessHashes
 	args = append(args, padUint256(big.NewInt(int64(params.ServiceProviderBPS)))...) // slot 8: _serviceProviderBPS
-	if params.ServiceProviderPayout != "" {                                       // slot 9: _serviceProviderPayout
+	if params.ServiceProviderPayout != "" {                                          // slot 9: _serviceProviderPayout
 		args = append(args, padAddress(params.ServiceProviderPayout)...)
 	} else {
 		args = append(args, make([]byte, 32)...)
 	}
-	args = append(args, padUint256(big.NewInt(int64(params.ArbitratorBPS)))...)   // slot 10: _arbitratorBPS
+	args = append(args, padUint256(big.NewInt(int64(params.ArbitratorBPS)))...) // slot 10: _arbitratorBPS
 
 	// Dynamic array: _witnessHashes (length + elements)
 	args = append(args, padUint256(big.NewInt(int64(len(params.WitnessHashes))))...)

@@ -63,10 +63,10 @@ type BTCEscrowWatcher struct {
 	interval time.Duration
 	minConf  uint32
 
-	mu       sync.Mutex
-	tracked  map[string]*btcWatchTarget // address -> target
-	cancel   context.CancelFunc
-	stopped  chan struct{}
+	mu      sync.Mutex
+	tracked map[string]*btcWatchTarget // address -> target
+	cancel  context.CancelFunc
+	stopped chan struct{}
 }
 
 // btcWatchTarget describes a single escrow being watched.

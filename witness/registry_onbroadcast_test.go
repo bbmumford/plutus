@@ -120,7 +120,7 @@ func TestOnBroadcast_AcceptsUnsignedReputationUpdate(t *testing.T) {
 		PubKey:       []byte(honest.PubKey),
 		ChainIDs:     honest.ChainIDs,
 		Capabilities: honest.Capabilities,
-		Reputation:   0.9,                               // mutated
+		Reputation:   0.9, // mutated
 		RegisteredAt: time.Now().Add(time.Hour).UnixNano(),
 		PayoutAddresses: map[string]string{
 			"ethereum": "0xHONEST", // unchanged

@@ -33,12 +33,12 @@ var (
 	instrumentsOnce sync.Once
 
 	// Escrow instruments.
-	escrowFundedCount    metric.Int64Counter
-	escrowReleasedCount  metric.Int64Counter
-	escrowDisputedCount  metric.Int64Counter
-	escrowRefundedCount  metric.Int64Counter
-	escrowFundDuration   metric.Float64Histogram
-	escrowStateQueries   metric.Int64Counter
+	escrowFundedCount   metric.Int64Counter
+	escrowReleasedCount metric.Int64Counter
+	escrowDisputedCount metric.Int64Counter
+	escrowRefundedCount metric.Int64Counter
+	escrowFundDuration  metric.Float64Histogram
+	escrowStateQueries  metric.Int64Counter
 
 	// Witness instruments.
 	witnessAttestCount    metric.Int64Counter
@@ -47,9 +47,9 @@ var (
 	witnessBalanceQueries metric.Int64Counter
 
 	// Settlement instruments.
-	settlementCount     metric.Int64Counter
-	settlementDuration  metric.Float64Histogram
-	settlementFeeTotal  metric.Int64Histogram
+	settlementCount    metric.Int64Counter
+	settlementDuration metric.Float64Histogram
+	settlementFeeTotal metric.Int64Histogram
 
 	// Gossip / mesh-broadcast instruments.
 	gossipBroadcastCount    metric.Int64Counter
@@ -133,7 +133,10 @@ func WitnessAttestCount() metric.Int64Counter { ensureInstruments(); return witn
 func WitnessQuorumFailures() metric.Int64Counter { ensureInstruments(); return witnessQuorumFailures }
 
 // WitnessVerifyDuration returns the witness verification latency histogram.
-func WitnessVerifyDuration() metric.Float64Histogram { ensureInstruments(); return witnessVerifyDuration }
+func WitnessVerifyDuration() metric.Float64Histogram {
+	ensureInstruments()
+	return witnessVerifyDuration
+}
 
 // WitnessBalanceQueries returns the balance witness-query counter.
 func WitnessBalanceQueries() metric.Int64Counter { ensureInstruments(); return witnessBalanceQueries }

@@ -640,10 +640,10 @@ func parseEVMEnvelope(raw []byte) (evmEnvelope, error) {
 // evmsign directly; these wrappers exist only for historical test
 // compatibility.
 
-func rlpBytes(b []byte) []byte      { return evmsign.RLPBytes(b) }
+func rlpBytes(b []byte) []byte       { return evmsign.RLPBytes(b) }
 func rlpList(items ...[]byte) []byte { return evmsign.RLPList(items...) }
-func rlpUint(n uint64) []byte       { return evmsign.RLPUint(n) }
-func rlpBigInt(n *big.Int) []byte   { return evmsign.RLPBigInt(n) }
+func rlpUint(n uint64) []byte        { return evmsign.RLPUint(n) }
+func rlpBigInt(n *big.Int) []byte    { return evmsign.RLPBigInt(n) }
 
 func keccak256(b []byte) [32]byte {
 	h := sha3.NewLegacyKeccak256()
@@ -662,14 +662,14 @@ func keccak256(b []byte) [32]byte {
 // cryptographic-protocol.md §8 and is bit-compatible with the wallet
 // helper (same Argon2id parameters, same AEAD, same associated data).
 const (
-	keyfileSaltSize        = 16
-	keyfileNonceSize       = 24
-	keyfileTagSize         = 16
-	keyfileArgon2Time      = 3
-	keyfileArgon2Memory    = 64 * 1024
-	keyfileArgon2Threads   = 4
-	keyfileArgon2KeyLen    = 32
-	keyfileAssociatedData  = "mercury-wallet-v1"
+	keyfileSaltSize       = 16
+	keyfileNonceSize      = 24
+	keyfileTagSize        = 16
+	keyfileArgon2Time     = 3
+	keyfileArgon2Memory   = 64 * 1024
+	keyfileArgon2Threads  = 4
+	keyfileArgon2KeyLen   = 32
+	keyfileAssociatedData = "mercury-wallet-v1"
 )
 
 // ErrKeyfileBadPassphrase is returned when the on-disk ciphertext fails

@@ -17,11 +17,11 @@ import (
 // on-chain release can be tied to off-chain service delivery.
 type ServiceReceipt struct {
 	ProviderPubKey ed25519.PublicKey // service provider's public key
-	BuyerNonce     []byte           // nonce provided by buyer to prove request
-	ServiceType    string           // type of service rendered (e.g. "vdi-session", "print-job")
-	ContentHash    []byte           // SHA-256 of service output/proof
-	Timestamp      time.Time        // when the service was rendered
-	Signature      []byte           // Ed25519 signature over all fields except Signature
+	BuyerNonce     []byte            // nonce provided by buyer to prove request
+	ServiceType    string            // type of service rendered (e.g. "vdi-session", "print-job")
+	ContentHash    []byte            // SHA-256 of service output/proof
+	Timestamp      time.Time         // when the service was rendered
+	Signature      []byte            // Ed25519 signature over all fields except Signature
 }
 
 // receiptDigest computes the canonical SHA-256 digest of all receipt fields

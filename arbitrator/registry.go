@@ -44,10 +44,10 @@ const (
 // fee structure, and expertise categories. Profiles are gossiped via the
 // plutus.arbitrators StatefulMerge topic.
 type ArbitratorProfile struct {
-	PubKey       ed25519.PublicKey  `json:"pubKey"`
-	ChainAddrs   map[string]string `json:"chainAddrs"`   // chainID -> chain address
-	FeeBPS       uint32            `json:"feeBPS"`        // capped at 300
-	Categories   []string          `json:"categories"`    // expertise: "digital-goods", "services", "physical"
+	PubKey       ed25519.PublicKey `json:"pubKey"`
+	ChainAddrs   map[string]string `json:"chainAddrs"` // chainID -> chain address
+	FeeBPS       uint32            `json:"feeBPS"`     // capped at 300
+	Categories   []string          `json:"categories"` // expertise: "digital-goods", "services", "physical"
 	Availability bool              `json:"availability"`
 	Bio          string            `json:"bio"`
 	Signature    []byte            `json:"signature"`

@@ -239,10 +239,10 @@ func (l *EarningLog) CollectEarnings(
 		witHex   string
 	}
 	type groupVal struct {
-		amount         *big.Int
-		attestations   [][]byte
-		lastOrderID    string
-		lastSettledAt  time.Time
+		amount        *big.Int
+		attestations  [][]byte
+		lastOrderID   string
+		lastSettledAt time.Time
 	}
 	groups := make(map[groupKey]*groupVal)
 
@@ -408,18 +408,18 @@ func feeBreakdownAttestationID(orderID, chainID, currency string, breakdown adap
 		amounts = append(amounts, v.String())
 	}
 	doc := struct {
-		Domain        string   `json:"domain"`
-		OrderID       string   `json:"orderId"`
-		ChainID       string   `json:"chainId"`
-		Currency      string   `json:"currency"`
-		WitnessPubs   []string `json:"witnessPubs"`
+		Domain         string   `json:"domain"`
+		OrderID        string   `json:"orderId"`
+		ChainID        string   `json:"chainId"`
+		Currency       string   `json:"currency"`
+		WitnessPubs    []string `json:"witnessPubs"`
 		WitnessAmounts []string `json:"witnessAmounts"`
 	}{
-		Domain:        "plutus.witness.earning.fallback.v1",
-		OrderID:       orderID,
-		ChainID:       chainID,
-		Currency:      currency,
-		WitnessPubs:   keys,
+		Domain:         "plutus.witness.earning.fallback.v1",
+		OrderID:        orderID,
+		ChainID:        chainID,
+		Currency:       currency,
+		WitnessPubs:    keys,
 		WitnessAmounts: amounts,
 	}
 	b, _ := json.Marshal(&doc)

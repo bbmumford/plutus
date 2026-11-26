@@ -6,9 +6,9 @@
 package canonical
 
 import (
-	_ "embed"
 	"crypto/ed25519"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"strings"

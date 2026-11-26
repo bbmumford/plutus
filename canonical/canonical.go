@@ -329,14 +329,14 @@ func VerifyAdapterTrust(descriptor []byte) error {
 
 	// 3. Parse the adapter descriptor.
 	var desc struct {
-		ChainID     string `json:"chainID"`
-		Currency    string `json:"currency"`
-		Symbol      string `json:"symbol"`
-		Version     string `json:"version"`
-		PRCAddress  string `json:"prcAddress"`
-		AdapterHash []byte `json:"adapterHash"`
+		ChainID      string `json:"chainID"`
+		Currency     string `json:"currency"`
+		Symbol       string `json:"symbol"`
+		Version      string `json:"version"`
+		PRCAddress   string `json:"prcAddress"`
+		AdapterHash  []byte `json:"adapterHash"`
 		SignerPubKey []byte `json:"signerPubKey"`
-		Signature   []byte `json:"signature"`
+		Signature    []byte `json:"signature"`
 	}
 	if err := json.Unmarshal(descriptor, &desc); err != nil {
 		return fmt.Errorf("canonical: failed to parse adapter descriptor: %w", err)

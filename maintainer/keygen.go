@@ -37,13 +37,13 @@ type MaintainerKey struct {
 // Version 2 uses Argon2id for key derivation and stores the salt.
 // On-disk format for ciphertext: the raw bytes are [salt:32][nonce:24][ciphertext].
 type encryptedKeyFile struct {
-	Version      int    `json:"version"`
-	PublicKey    string `json:"publicKey"`
-	PubKeyHash   string `json:"pubKeyHash"`
-	Salt         string `json:"salt,omitempty"` // hex-encoded Argon2id salt (v2+)
-	Nonce        string `json:"nonce"`          // hex-encoded nonce
-	Ciphertext   string `json:"ciphertext"`     // hex-encoded encrypted private key
-	CreatedAt    string `json:"createdAt"`
+	Version    int    `json:"version"`
+	PublicKey  string `json:"publicKey"`
+	PubKeyHash string `json:"pubKeyHash"`
+	Salt       string `json:"salt,omitempty"` // hex-encoded Argon2id salt (v2+)
+	Nonce      string `json:"nonce"`          // hex-encoded nonce
+	Ciphertext string `json:"ciphertext"`     // hex-encoded encrypted private key
+	CreatedAt  string `json:"createdAt"`
 }
 
 // GenerateKey generates a new Ed25519 key pair for use as a maintainer identity.

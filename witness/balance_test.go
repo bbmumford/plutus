@@ -178,9 +178,9 @@ func TestBalanceVerifierReplayRejection(t *testing.T) {
 	// Put a pending request expecting a different nonce.
 	pending := &balancePendingRequest{
 		query: BalanceQuery{
-			ChainID:      "testchain",
-			Address:      "0xreplay",
-			RequestNonce: []byte{0x01, 0x02, 0x03, 0x04},
+			ChainID:       "testchain",
+			Address:       "0xreplay",
+			RequestNonce:  []byte{0x01, 0x02, 0x03, 0x04},
 			MaxAgeSeconds: 60,
 		},
 		done: make(chan struct{}, 1),

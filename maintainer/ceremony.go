@@ -32,8 +32,8 @@ type OfflineRootKey struct {
 type PlatformKeyCertificate struct {
 	PlatformPubKey    ed25519.PublicKey `json:"platformPubKey"`
 	OfflineRootPubKey ed25519.PublicKey `json:"offlineRootPubKey"`
-	IssuedAt          time.Time        `json:"issuedAt"`
-	Signature         []byte           `json:"signature"` // OR signs (PK pubkey + issuedAt)
+	IssuedAt          time.Time         `json:"issuedAt"`
+	Signature         []byte            `json:"signature"` // OR signs (PK pubkey + issuedAt)
 	// NO expiry — valid forever unless revoked via rotation.
 }
 

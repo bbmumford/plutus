@@ -53,7 +53,7 @@ func NewGasEstimator(client *EVMClient) (*GasEstimator, error) {
 	return &GasEstimator{
 		client:                client,
 		GasLimitMultiplier:    1.2,
-		DefaultMaxPriorityFee: big.NewInt(1_500_000_000), // 1.5 gwei default
+		DefaultMaxPriorityFee: big.NewInt(1_500_000_000),                                    // 1.5 gwei default
 		MaxGasPrice:           new(big.Int).Mul(big.NewInt(500), big.NewInt(1_000_000_000)), // 500 gwei cap
 	}, nil
 }

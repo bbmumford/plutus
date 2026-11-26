@@ -388,11 +388,11 @@ func sampleRound(id string) *DistributionRoundResult {
 // flakyBackend is an in-memory distributionBackend for tests that need to
 // induce error paths at the backend boundary.
 type flakyBackend struct {
-	mu         sync.Mutex
-	entries    []distributionLogEntry
-	appendErr  error
-	replayErr  error
-	closed     atomic.Bool
+	mu        sync.Mutex
+	entries   []distributionLogEntry
+	appendErr error
+	replayErr error
+	closed    atomic.Bool
 }
 
 // errInjectedAppend is the sentinel we set via setAppendErr to make the

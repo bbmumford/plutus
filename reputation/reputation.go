@@ -67,10 +67,10 @@ type ReputationRecord struct {
 	SubjectPubKey  []byte    `json:"subjectPubKey"`  // the party being reviewed
 	RecorderPubKey []byte    `json:"recorderPubKey"` // the party recording the reputation
 	Type           RepType   `json:"type"`
-	Score          int32     `json:"score"`     // -1, 0, or +1
-	AppID          string    `json:"appId"`     // which application the trade occurred on
-	TxHash         string    `json:"txHash"`    // on-chain transaction hash for verification
-	Comment        string    `json:"comment"`   // optional review text
+	Score          int32     `json:"score"`   // -1, 0, or +1
+	AppID          string    `json:"appId"`   // which application the trade occurred on
+	TxHash         string    `json:"txHash"`  // on-chain transaction hash for verification
+	Comment        string    `json:"comment"` // optional review text
 	Timestamp      time.Time `json:"timestamp"`
 	Signature      []byte    `json:"signature"`
 }
@@ -124,13 +124,13 @@ func VerifyRecord(r *ReputationRecord) bool {
 
 // ReputationScore aggregates reputation metrics for a single identity.
 type ReputationScore struct {
-	TotalTrades  int                `json:"totalTrades"`
-	PositiveRate float64            `json:"positiveRate"` // 0.0 - 1.0
-	DisputeRate  float64            `json:"disputeRate"`  // 0.0 - 1.0
-	AvgRating    float64            `json:"avgRating"`    // -1.0 to +1.0
-	FirstTradeAt time.Time          `json:"firstTradeAt"`
-	LastTradeAt  time.Time          `json:"lastTradeAt"`
-	AppBreakdown map[string]int     `json:"appBreakdown"` // appID -> trade count
+	TotalTrades  int            `json:"totalTrades"`
+	PositiveRate float64        `json:"positiveRate"` // 0.0 - 1.0
+	DisputeRate  float64        `json:"disputeRate"`  // 0.0 - 1.0
+	AvgRating    float64        `json:"avgRating"`    // -1.0 to +1.0
+	FirstTradeAt time.Time      `json:"firstTradeAt"`
+	LastTradeAt  time.Time      `json:"lastTradeAt"`
+	AppBreakdown map[string]int `json:"appBreakdown"` // appID -> trade count
 }
 
 // ReputationService tracks and computes reputation scores across the mesh.

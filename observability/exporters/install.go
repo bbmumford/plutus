@@ -1,9 +1,9 @@
+//go:build !js
+
 /*
  * Copyright (c) 2026 Brandon Miller-Mumford.
  * Licensed under the MIT License; see LICENSE.
  */
-
-//go:build !js
 
 package exporters
 
@@ -38,10 +38,10 @@ type Options struct {
 // Installed describes the providers activated by Install and the work
 // required to cleanly shut them down.
 type Installed struct {
-	TracerProvider  *sdktrace.TracerProvider
-	MeterProvider   *sdkmetric.MeterProvider
-	MetricsHandler  http.Handler
-	Shutdown        func(context.Context) error
+	TracerProvider *sdktrace.TracerProvider
+	MeterProvider  *sdkmetric.MeterProvider
+	MetricsHandler http.Handler
+	Shutdown       func(context.Context) error
 }
 
 // Install wires global providers according to opts. It returns an Installed

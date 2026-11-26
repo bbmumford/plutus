@@ -56,9 +56,9 @@ type AuditReport struct {
 	QuorumVerified   int `json:"quorumVerified"`
 
 	// Fee totals.
-	TotalVolume       *big.Int `json:"totalVolume"`
+	TotalVolume         *big.Int `json:"totalVolume"`
 	TotalMaintainerFees *big.Int `json:"totalMaintainerFees"`
-	TotalWitnessFees  *big.Int `json:"totalWitnessFees"`
+	TotalWitnessFees    *big.Int `json:"totalWitnessFees"`
 	TotalSellerProceeds *big.Int `json:"totalSellerProceeds"`
 
 	// Fee accuracy metrics.
@@ -78,10 +78,10 @@ type AuditReport struct {
 
 // AuditAnomaly flags a settlement that doesn't match expected fee parameters.
 type AuditAnomaly struct {
-	EscrowAddr   string `json:"escrowAddr"`
-	TxHash       string `json:"txHash"`
-	Type         string `json:"type"` // "fee_mismatch", "no_quorum", "missing_witness_fee"
-	Description  string `json:"description"`
+	EscrowAddr  string `json:"escrowAddr"`
+	TxHash      string `json:"txHash"`
+	Type        string `json:"type"` // "fee_mismatch", "no_quorum", "missing_witness_fee"
+	Description string `json:"description"`
 }
 
 // Auditor performs fee collection audits by querying witness attestation records.
@@ -121,17 +121,17 @@ func (a *Auditor) Audit(ctx context.Context, chainID string, from, to time.Time,
 
 	// Aggregate.
 	report := &AuditReport{
-		ChainID:             chainID,
-		PeriodFrom:          from,
-		PeriodTo:            to,
-		TotalSettlements:    len(events),
-		TotalVolume:         new(big.Int),
-		TotalMaintainerFees: new(big.Int),
-		TotalWitnessFees:    new(big.Int),
-		TotalSellerProceeds: new(big.Int),
+		ChainID:               chainID,
+		PeriodFrom:            from,
+		PeriodTo:              to,
+		TotalSettlements:      len(events),
+		TotalVolume:           new(big.Int),
+		TotalMaintainerFees:   new(big.Int),
+		TotalWitnessFees:      new(big.Int),
+		TotalSellerProceeds:   new(big.Int),
 		ExpectedMaintainerBPS: expectedMaintainerBPS,
-		Settlements:         events,
-		GeneratedAt:         time.Now().UTC(),
+		Settlements:           events,
+		GeneratedAt:           time.Now().UTC(),
 	}
 
 	bpsBase := big.NewInt(10000)
@@ -195,17 +195,17 @@ func (a *Auditor) AuditEscrow(ctx context.Context, chainID string, escrowAddr st
 	}
 
 	report := &AuditReport{
-		ChainID:              chainID,
-		PeriodFrom:           event.AttestedAt,
-		PeriodTo:             event.AttestedAt,
-		TotalSettlements:     1,
-		TotalVolume:          new(big.Int).Set(event.Amount),
-		TotalMaintainerFees:  new(big.Int).Set(event.MaintainerFee),
-		TotalWitnessFees:     new(big.Int).Set(event.WitnessFee),
-		TotalSellerProceeds:  new(big.Int).Set(event.SellerProceeds),
+		ChainID:               chainID,
+		PeriodFrom:            event.AttestedAt,
+		PeriodTo:              event.AttestedAt,
+		TotalSettlements:      1,
+		TotalVolume:           new(big.Int).Set(event.Amount),
+		TotalMaintainerFees:   new(big.Int).Set(event.MaintainerFee),
+		TotalWitnessFees:      new(big.Int).Set(event.WitnessFee),
+		TotalSellerProceeds:   new(big.Int).Set(event.SellerProceeds),
 		ExpectedMaintainerBPS: expectedMaintainerBPS,
-		Settlements:          []SettlementEvent{*event},
-		GeneratedAt:          time.Now().UTC(),
+		Settlements:           []SettlementEvent{*event},
+		GeneratedAt:           time.Now().UTC(),
 	}
 
 	if event.Disputed {

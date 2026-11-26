@@ -1,9 +1,9 @@
+//go:build !js
+
 /*
  * Copyright (c) 2026 Brandon Miller-Mumford.
  * Licensed under the MIT License; see LICENSE.
  */
-
-//go:build !js
 
 // Package btc — NeutrinoBalanceProvider is a pure-Go BIP157/158 compact-block-
 // filter SPV implementation of witness.ChainBalanceProvider. It lets a witness
@@ -15,20 +15,20 @@
 // Relative to EsploraBalanceProvider (balance.go) the trade-offs are:
 //
 //   - Trust model:   Neutrino trusts the heaviest-PoW chain from connected
-//                    P2P peers (BIP157 filter-header checkpoints). Esplora
-//                    trusts the indexer operator. Neutrino is strictly
-//                    stronger.
+//     P2P peers (BIP157 filter-header checkpoints). Esplora
+//     trusts the indexer operator. Neutrino is strictly
+//     stronger.
 //   - Footprint:     Neutrino uses ~3-5 GB disk (headers + filters; blocks
-//                    are fetched on demand and pruned), ~200-300 MB RAM.
-//                    Esplora uses 0 local resources.
+//     are fetched on demand and pruned), ~200-300 MB RAM.
+//     Esplora uses 0 local resources.
 //   - Initial sync:  1-6 hours on mainnet before Neutrino can answer any
-//                    query. Esplora answers immediately.
+//     query. Esplora answers immediately.
 //   - Query latency: Neutrino walks filters from birthHeight to tip; for a
-//                    narrow window (maintainer-sponsored addresses created
-//                    after birthHeight) this is seconds. Esplora is one
-//                    HTTP round-trip.
+//     narrow window (maintainer-sponsored addresses created
+//     after birthHeight) this is seconds. Esplora is one
+//     HTTP round-trip.
 //   - Availability:  Neutrino depends only on the Bitcoin P2P network.
-//                    Esplora depends on one HTTP provider.
+//     Esplora depends on one HTTP provider.
 //
 // This file is build-tagged !js because walletdb/bdb (bbolt) and the P2P
 // stack do not compile under js/wasm. WASM witnesses fall back to the

@@ -70,15 +70,15 @@ type distributionBackend interface {
 // schema independently of the public API — e.g. add a schemaVersion field or
 // separate per-receipt records — without breaking existing logs.
 type distributionLogEntry struct {
-	SchemaVersion int                         `json:"v"`
-	RoundID       string                      `json:"roundId"`
-	WindowStart   time.Time                   `json:"windowStart"`
-	WindowEnd     time.Time                   `json:"windowEnd"`
-	StartedAt     time.Time                   `json:"startedAt"`
-	CompletedAt   time.Time                   `json:"completedAt"`
-	Receipts      []persistedReceipt          `json:"receipts,omitempty"`
-	Skipped       []persistedSkipped          `json:"skipped,omitempty"`
-	Residuals     map[string]string           `json:"residuals,omitempty"` // group-key → decimal amount
+	SchemaVersion int                `json:"v"`
+	RoundID       string             `json:"roundId"`
+	WindowStart   time.Time          `json:"windowStart"`
+	WindowEnd     time.Time          `json:"windowEnd"`
+	StartedAt     time.Time          `json:"startedAt"`
+	CompletedAt   time.Time          `json:"completedAt"`
+	Receipts      []persistedReceipt `json:"receipts,omitempty"`
+	Skipped       []persistedSkipped `json:"skipped,omitempty"`
+	Residuals     map[string]string  `json:"residuals,omitempty"` // group-key → decimal amount
 }
 
 type persistedReceipt struct {
@@ -90,11 +90,11 @@ type persistedReceipt struct {
 }
 
 type persistedPayout struct {
-	WitnessPubKey  string   `json:"pubkey"`  // hex
+	WitnessPubKey  string   `json:"pubkey"` // hex
 	WitnessAddr    string   `json:"addr"`
 	ChainID        string   `json:"chainId"`
 	Currency       string   `json:"currency"`
-	Amount         string   `json:"amount"` // decimal string
+	Amount         string   `json:"amount"`                   // decimal string
 	AttestationIDs []string `json:"attestationIds,omitempty"` // hex-encoded
 }
 

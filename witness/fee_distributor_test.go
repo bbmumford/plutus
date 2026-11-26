@@ -113,11 +113,11 @@ func (s *fakeSigner) SignBatchPayout(_ context.Context, batch UnsignedBatch) (Si
 }
 
 type fakeBroadcaster struct {
-	mu       sync.Mutex
-	sentTxs  [][]byte
-	txHash   string
-	err      error
-	counter  int
+	mu      sync.Mutex
+	sentTxs [][]byte
+	txHash  string
+	err     error
+	counter int
 }
 
 func (b *fakeBroadcaster) BroadcastTx(_ context.Context, chainID string, signedTx []byte) (string, error) {

@@ -370,13 +370,13 @@ func TestFund_Validation(t *testing.T) {
 	ctx := context.Background()
 
 	cases := map[string]FundParams{
-		"zero amount":   {Amount: big.NewInt(0), Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
-		"nil amount":    {Amount: nil, Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
-		"empty buyer":   {Amount: big.NewInt(1), Buyer: "", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
-		"empty seller":  {Amount: big.NewInt(1), Buyer: "B", Seller: "", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
+		"zero amount":    {Amount: big.NewInt(0), Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
+		"nil amount":     {Amount: nil, Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
+		"empty buyer":    {Amount: big.NewInt(1), Buyer: "", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
+		"empty seller":   {Amount: big.NewInt(1), Buyer: "B", Seller: "", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 10},
 		"empty currency": {Amount: big.NewInt(1), Buyer: "B", Seller: "S", Currency: "", ChainID: "ethereum", TimeoutBlocks: 10},
-		"empty chain":   {Amount: big.NewInt(1), Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "", TimeoutBlocks: 10},
-		"zero timeout":  {Amount: big.NewInt(1), Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 0},
+		"empty chain":    {Amount: big.NewInt(1), Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "", TimeoutBlocks: 10},
+		"zero timeout":   {Amount: big.NewInt(1), Buyer: "B", Seller: "S", Currency: "USDC", ChainID: "ethereum", TimeoutBlocks: 0},
 	}
 	for name, p := range cases {
 		if _, err := h.manager.Fund(ctx, p); err == nil {

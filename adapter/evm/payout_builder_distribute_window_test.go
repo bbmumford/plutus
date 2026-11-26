@@ -85,12 +85,12 @@ func TestEncodeDistributeWindow_MatchesReferenceABI(t *testing.T) {
 	ref.Write(referenceKeccakSelector("distributeWindow(bytes32,uint64,bytes32,address,address[],uint256[])")) // 4
 
 	// static head
-	ref.Write(chainIDHash[:])            // chainID (already 32)
-	ref.Write(word32(uint64(windowID)))  // windowID
-	ref.Write(root[:])                   // attestationLogRoot
-	ref.Write(addrWord(t, token))        // token
+	ref.Write(chainIDHash[:])           // chainID (already 32)
+	ref.Write(word32(uint64(windowID))) // windowID
+	ref.Write(root[:])                  // attestationLogRoot
+	ref.Write(addrWord(t, token))       // token
 	// offsets (args-region relative)
-	ref.Write(word32(uint64(6 * 32)))         // recipients offset = 192
+	ref.Write(word32(uint64(6 * 32)))           // recipients offset = 192
 	ref.Write(word32(uint64(6*32 + 32 + 2*32))) // amounts offset = 192 + 32 + 2*32 = 288
 
 	// recipients tail

@@ -1,9 +1,9 @@
+//go:build !js
+
 /*
  * Copyright (c) 2026 Brandon Miller-Mumford.
  * Licensed under the MIT License; see LICENSE.
  */
-
-//go:build !js
 
 package btc
 
@@ -65,8 +65,8 @@ func TestAddressToPkScriptRoundTrip(t *testing.T) {
 	}{
 		// Known mainnet addresses for each standard script type. These are
 		// public, well-known addresses and carry no secrets.
-		{"p2pkh", "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"},   // Satoshi-era legacy
-		{"p2sh", "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"},    // legacy P2SH
+		{"p2pkh", "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"},          // Satoshi-era legacy
+		{"p2sh", "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"},           // legacy P2SH
 		{"p2wpkh", "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"}, // BIP173
 		{"p2wsh", "bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3"},
 	}

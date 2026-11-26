@@ -110,9 +110,9 @@ func (e *BTCFeeEstimator) EstimateTxFee(ctx context.Context, numInputs, numOutpu
 // Assumes P2WSH inputs and P2WPKH outputs.
 func EstimateTxVSize(numInputs, numOutputs int) int {
 	const (
-		txOverhead   = 11  // version + locktime + segwit marker + counts
-		p2wshInput   = 41  // outpoint + sequence + witness discount
-		p2wpkhOutput = 31  // value + scriptPubKey
+		txOverhead   = 11 // version + locktime + segwit marker + counts
+		p2wshInput   = 41 // outpoint + sequence + witness discount
+		p2wpkhOutput = 31 // value + scriptPubKey
 	)
 	return txOverhead + numInputs*p2wshInput + numOutputs*p2wpkhOutput
 }

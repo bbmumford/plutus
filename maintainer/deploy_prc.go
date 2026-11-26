@@ -18,16 +18,16 @@ import (
 
 // PRCDeployment records the result of deploying a PRC to a chain.
 type PRCDeployment struct {
-	ChainID            string    `json:"chainID"`
-	PRCAddress         string    `json:"prcAddress"`
-	TxHash             string    `json:"txHash"`
-	MaintainerPayout   string    `json:"maintainerPayout"`
-	MaintainerFeeBPS   uint32    `json:"maintainerFeeBPS"`
-	WitnessBPS         uint32    `json:"witnessBPS"`
-	MaintainerPubKey   string    `json:"maintainerPubKey"`     // hex-encoded Ed25519 pubkey
-	MaintainerKeyHash  string    `json:"maintainerPubKeyHash"` // hex-encoded SHA256 of pubkey
-	DeployedAt         time.Time `json:"deployedAt"`
-	BlockNumber        uint64    `json:"blockNumber,omitempty"`
+	ChainID           string    `json:"chainID"`
+	PRCAddress        string    `json:"prcAddress"`
+	TxHash            string    `json:"txHash"`
+	MaintainerPayout  string    `json:"maintainerPayout"`
+	MaintainerFeeBPS  uint32    `json:"maintainerFeeBPS"`
+	WitnessBPS        uint32    `json:"witnessBPS"`
+	MaintainerPubKey  string    `json:"maintainerPubKey"`     // hex-encoded Ed25519 pubkey
+	MaintainerKeyHash string    `json:"maintainerPubKeyHash"` // hex-encoded SHA256 of pubkey
+	DeployedAt        time.Time `json:"deployedAt"`
+	BlockNumber       uint64    `json:"blockNumber,omitempty"`
 }
 
 // PRCDeployConfig contains the configuration for deploying a PRC.

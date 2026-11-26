@@ -38,8 +38,8 @@ var knownTokenDecimals = map[string]uint64{
 // A provider is bound to a single chain (via its EVMClient); witnesses that
 // serve multiple EVM chains register one provider per chain.
 type EVMBalanceProvider struct {
-	client          *EVMClient
-	nativeDecimals  uint64
+	client         *EVMClient
+	nativeDecimals uint64
 
 	mu            sync.Mutex
 	decimalsCache map[string]uint64 // lowercased token contract -> decimals

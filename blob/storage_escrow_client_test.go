@@ -253,9 +253,9 @@ func (f *fakeBroadcaster) BroadcastTx(_ context.Context, chainID string, signedT
 func newTestClient(t *testing.T, signer *fakeSigner, bc *fakeBroadcaster, reg EscrowRegistry) *StorageEscrowClient {
 	t.Helper()
 	c, err := NewStorageEscrowClient(StorageEscrowClientConfig{
-		ChainID:    "polygon",
-		EVMChainID: 137,
-		Signer:     signer,
+		ChainID:     "polygon",
+		EVMChainID:  137,
+		Signer:      signer,
 		Broadcaster: bc,
 		NonceFn: func(context.Context) (uint64, error) {
 			return 42, nil
@@ -495,4 +495,3 @@ func TestIsBenignChallengeExpireRevert(t *testing.T) {
 		}
 	}
 }
-

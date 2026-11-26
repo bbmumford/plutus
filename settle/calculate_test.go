@@ -17,14 +17,14 @@ func TestFeeCalculator_BasicBPSMath(t *testing.T) {
 	calc := NewFeeCalculator()
 
 	type row struct {
-		name          string
-		amount        int64
-		opts          adapter.FeeOptions
-		wantMaint     int64
-		wantWitness   int64
-		wantService   int64
+		name           string
+		amount         int64
+		opts           adapter.FeeOptions
+		wantMaint      int64
+		wantWitness    int64
+		wantService    int64
 		wantArbitrator int64
-		wantSeller    int64
+		wantSeller     int64
 	}
 	rows := []row{
 		{"1%-maintainer-only-1000", 1000, adapter.FeeOptions{MaintainerBPS: 100}, 10, 0, 0, 0, 990},

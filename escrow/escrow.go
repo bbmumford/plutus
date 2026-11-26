@@ -81,17 +81,17 @@ type EscrowConstructParams struct {
 
 // OnChainEscrowState is the raw state returned by a CurrencyAdapter.
 type OnChainEscrowState struct {
-	Buyer         string
-	Seller        string
-	Arbitrator    string
-	Amount        *big.Int
-	Funded        bool
-	Released      bool
-	Disputed      bool
-	Settled       bool
-	TimedOut      bool
-	TimeoutBlock  uint64
-	CurrentBlock  uint64
+	Buyer        string
+	Seller       string
+	Arbitrator   string
+	Amount       *big.Int
+	Funded       bool
+	Released     bool
+	Disputed     bool
+	Settled      bool
+	TimedOut     bool
+	TimeoutBlock uint64
+	CurrentBlock uint64
 }
 
 // EscrowSnapshot is the witness-attested view of escrow state.
@@ -122,7 +122,7 @@ type FundParams struct {
 	Seller        string
 	Currency      string
 	ChainID       string
-	Arbitrator    string   // optional
+	Arbitrator    string // optional
 	TimeoutBlocks uint64
 	ReceiptHashes [][]byte // service provider receipts
 	WitnessHashes [][]byte // witness attestation hashes

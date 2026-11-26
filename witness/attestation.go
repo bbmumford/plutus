@@ -21,12 +21,12 @@ type EscrowSnapshotStatus int
 
 const (
 	EscrowSnapshotStatusUnspecified EscrowSnapshotStatus = 0
-	EscrowSnapshotStatusPending    EscrowSnapshotStatus = 1
-	EscrowSnapshotStatusFunded     EscrowSnapshotStatus = 2
-	EscrowSnapshotStatusReleased   EscrowSnapshotStatus = 3
-	EscrowSnapshotStatusDisputed   EscrowSnapshotStatus = 4
-	EscrowSnapshotStatusSettled    EscrowSnapshotStatus = 5
-	EscrowSnapshotStatusRefunded   EscrowSnapshotStatus = 6
+	EscrowSnapshotStatusPending     EscrowSnapshotStatus = 1
+	EscrowSnapshotStatusFunded      EscrowSnapshotStatus = 2
+	EscrowSnapshotStatusReleased    EscrowSnapshotStatus = 3
+	EscrowSnapshotStatusDisputed    EscrowSnapshotStatus = 4
+	EscrowSnapshotStatusSettled     EscrowSnapshotStatus = 5
+	EscrowSnapshotStatusRefunded    EscrowSnapshotStatus = 6
 )
 
 // EscrowSnapshot captures the on-chain state of a Plutus escrow contract at

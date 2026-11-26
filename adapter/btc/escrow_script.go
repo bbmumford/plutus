@@ -12,22 +12,22 @@ import (
 
 // Bitcoin Script opcodes used in escrow scripts.
 const (
-	opDup          = 0x76
-	opHash160      = 0xa9
-	opEqualVerify  = 0x88
-	opCheckSig     = 0xac
-	opCheckMultiSig = 0xae
-	op2            = 0x52
-	op3            = 0x53
-	opEqual        = 0x87
-	op0            = 0x00
-	opIf           = 0x63
-	opElse         = 0x67
-	opEndIf        = 0x68
+	opDup                 = 0x76
+	opHash160             = 0xa9
+	opEqualVerify         = 0x88
+	opCheckSig            = 0xac
+	opCheckMultiSig       = 0xae
+	op2                   = 0x52
+	op3                   = 0x53
+	opEqual               = 0x87
+	op0                   = 0x00
+	opIf                  = 0x63
+	opElse                = 0x67
+	opEndIf               = 0x68
 	opCheckLocktimeVerify = 0xb1
-	opDrop         = 0x75
+	opDrop                = 0x75
 	opCheckSequenceVerify = 0xb2
-	opPushData1    = 0x4c
+	opPushData1           = 0x4c
 )
 
 // EscrowScript represents a P2WSH 2-of-3 multisig escrow script.
@@ -176,11 +176,11 @@ func (e *EscrowScript) MultisigWitness(sig1, sig2 []byte) ([][]byte, error) {
 	}
 
 	return [][]byte{
-		{},           // OP_0 dummy for CHECKMULTISIG bug
-		sig1,         // first signature
-		sig2,         // second signature
-		{0x01},       // OP_TRUE to select the IF branch
-		e.Script,     // witness script (redeemScript)
+		{},       // OP_0 dummy for CHECKMULTISIG bug
+		sig1,     // first signature
+		sig2,     // second signature
+		{0x01},   // OP_TRUE to select the IF branch
+		e.Script, // witness script (redeemScript)
 	}, nil
 }
 

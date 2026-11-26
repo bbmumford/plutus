@@ -125,10 +125,10 @@ func (s *UTXOSelector) Select(utxos []UTXO, target *big.Int, feePerVByte float64
 //   - P2WSH output: 43 vbytes
 func (s *UTXOSelector) estimateFee(numInputs, numOutputs int, feePerVByte float64, extraOutputSize int) *big.Int {
 	const (
-		txOverhead   = 11  // version(4) + locktime(4) + segwit marker(~2) + input/output count(1)
-		p2wshInput   = 41  // outpoint(36) + sequence(4) + witness estimate with discount
-		p2wpkhOutput = 31  // value(8) + scriptPubKey length(1) + P2WPKH script(22)
-		p2wshOutput  = 43  // value(8) + scriptPubKey length(1) + P2WSH script(34)
+		txOverhead   = 11 // version(4) + locktime(4) + segwit marker(~2) + input/output count(1)
+		p2wshInput   = 41 // outpoint(36) + sequence(4) + witness estimate with discount
+		p2wpkhOutput = 31 // value(8) + scriptPubKey length(1) + P2WPKH script(22)
+		p2wshOutput  = 43 // value(8) + scriptPubKey length(1) + P2WSH script(34)
 	)
 
 	vsize := txOverhead +

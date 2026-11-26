@@ -8,21 +8,22 @@
 // blob-escrow on-chain interactions.
 //
 // WHY A SEPARATE LEAF PACKAGE:
-//   The witness package originally owned signLegacyTxEIP155 (private).
-//   The adapter/evm package depends on witness for the PayoutBuilder
-//   interface, so lifting the primitive into adapter/evm would create
-//   a cycle. plutus/blob (the on-chain escrow client) also needs legacy
-//   EIP-155 signing — duplicating the ~80 lines of consensus-critical
-//   logic three places is a recipe for drift.
 //
-//   Putting the primitive in a dependency-free leaf package
-//   (this one) lets witness, adapter/evm, and blob all import it
-//   without forming any cycle:
+//	The witness package originally owned signLegacyTxEIP155 (private).
+//	The adapter/evm package depends on witness for the PayoutBuilder
+//	interface, so lifting the primitive into adapter/evm would create
+//	a cycle. plutus/blob (the on-chain escrow client) also needs legacy
+//	EIP-155 signing — duplicating the ~80 lines of consensus-critical
+//	logic three places is a recipe for drift.
 //
-//       plutus/evmsign   (leaf, zero plutus deps)
-//         ├── plutus/witness    (uses evmsign)
-//         ├── plutus/adapter/evm (uses witness, which uses evmsign)
-//         └── plutus/blob       (uses evmsign directly)
+//	Putting the primitive in a dependency-free leaf package
+//	(this one) lets witness, adapter/evm, and blob all import it
+//	without forming any cycle:
+//
+//	    plutus/evmsign   (leaf, zero plutus deps)
+//	      ├── plutus/witness    (uses evmsign)
+//	      ├── plutus/adapter/evm (uses witness, which uses evmsign)
+//	      └── plutus/blob       (uses evmsign directly)
 //
 // Security contract:
 //   - priv is a 32-byte secp256k1 scalar; zero scalar rejected.

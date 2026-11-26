@@ -29,7 +29,7 @@ var bech32Reverse = func() [128]int8 {
 }()
 
 const (
-	bech32Const  = 1 // BIP173 (v0 segwit)
+	bech32Const  = 1          // BIP173 (v0 segwit)
 	bech32mConst = 0x2bc830a3 // BIP350 (v1+ segwit, taproot)
 )
 

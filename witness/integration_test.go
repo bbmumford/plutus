@@ -75,10 +75,10 @@ func (w *fakeWitness) OnBroadcast(topic string, from string, payload []byte) {
 
 // meshFixture wires a MeshVerifier with N fake witnesses to one engine.
 type meshFixture struct {
-	engine   *whisper.Engine
-	registry *WitnessRegistry
-	detector *CollusionDetector
-	verifier *MeshVerifier
+	engine    *whisper.Engine
+	registry  *WitnessRegistry
+	detector  *CollusionDetector
+	verifier  *MeshVerifier
 	witnesses []*fakeWitness
 }
 

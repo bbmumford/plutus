@@ -419,9 +419,9 @@ func (r *WitnessRegistry) Register(reg WitnessRegistration) error {
 	// Persist to Ledger cache for durability across restarts.
 	if r.cache != nil {
 		rec := ledger.Record{
-			Topic:    ledger.Topic(topicWitnesses),
-			NodeID:   key,
-			Body:     data,
+			Topic:     ledger.Topic(topicWitnesses),
+			NodeID:    key,
+			Body:      data,
 			Timestamp: reg.RegisteredAt,
 		}
 		_ = r.cache.Apply(rec)

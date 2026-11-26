@@ -18,7 +18,7 @@ type balanceCacheKey struct {
 
 // balanceCacheEntry holds a cached BalanceResult and its expiry time.
 type balanceCacheEntry struct {
-	result   *BalanceResult
+	result    *BalanceResult
 	expiresAt time.Time
 }
 

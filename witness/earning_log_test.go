@@ -88,9 +88,9 @@ func TestEarningLog_TimeWindowFilter(t *testing.T) {
 
 	// Three records: one before window, one inside, one exactly at end (excluded).
 	for i, at := range []time.Time{
-		base.Add(-time.Hour),  // before start — excluded
-		base,                  // at start — included
-		base.Add(time.Hour),   // at end — excluded (exclusive)
+		base.Add(-time.Hour), // before start — excluded
+		base,                 // at start — included
+		base.Add(time.Hour),  // at end — excluded (exclusive)
 	} {
 		err := log.Record(ctx, fmt.Sprintf("order-%d", i), "ethereum", "USDC", at,
 			mustBreakdown(map[string]*big.Int{"aa": big.NewInt(int64(10 + i))}))

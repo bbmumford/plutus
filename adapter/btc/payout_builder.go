@@ -444,12 +444,12 @@ func (b *BTCPayoutBuilder) buildBatchPayout(from string, payouts []witness.Payou
 // ComputeBIP143SighashP2WPKH — callers store only the 25-byte script.
 func p2wpkhScriptCode(pubKeyHash160 [20]byte) []byte {
 	out := make([]byte, 0, 25)
-	out = append(out, 0x76)       // OP_DUP
-	out = append(out, 0xa9)       // OP_HASH160
-	out = append(out, 0x14)       // push 20 bytes
+	out = append(out, 0x76) // OP_DUP
+	out = append(out, 0xa9) // OP_HASH160
+	out = append(out, 0x14) // push 20 bytes
 	out = append(out, pubKeyHash160[:]...)
-	out = append(out, 0x88)       // OP_EQUALVERIFY
-	out = append(out, 0xac)       // OP_CHECKSIG
+	out = append(out, 0x88) // OP_EQUALVERIFY
+	out = append(out, 0xac) // OP_CHECKSIG
 	return out
 }
 
@@ -488,9 +488,9 @@ func BigToInt64Sat(v *big.Int) int64 { return bigToSat(v) }
 // limit so mempool policy (Bitcoin Core default) accepts the tx.
 func encodeWitnessWindowOpReturn(windowID uint64, attestationLogRoot [32]byte) []byte {
 	const (
-		opReturn       = 0x6a
-		payloadLen     = 4 + 8 + 32 // magic + windowID + root = 44
-		pushOpcode     = byte(payloadLen)
+		opReturn   = 0x6a
+		payloadLen = 4 + 8 + 32 // magic + windowID + root = 44
+		pushOpcode = byte(payloadLen)
 	)
 	out := make([]byte, 0, 2+payloadLen)
 	out = append(out, opReturn, pushOpcode)

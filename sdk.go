@@ -89,11 +89,11 @@ type PlutusSDK struct {
 	SettlementExecutor *settle.SettlementExecutor
 
 	// Witness
-	WitnessRegistry *witness.WitnessRegistry
-	MeshVerifier    *witness.MeshVerifier
-	BroadcastService *witness.BroadcastService
+	WitnessRegistry   *witness.WitnessRegistry
+	MeshVerifier      *witness.MeshVerifier
+	BroadcastService  *witness.BroadcastService
 	CollusionDetector *witness.CollusionDetector
-	BalanceVerifier *witness.BalanceVerifier
+	BalanceVerifier   *witness.BalanceVerifier
 
 	// EarningLog is the durable per-witness earnings record that feeds the
 	// fee distributor. Nil when Config.DataDir is empty.
@@ -708,8 +708,8 @@ type adapterBridge struct {
 	inner adapter.CurrencyAdapter
 }
 
-func (b *adapterBridge) ChainID() string   { return b.inner.ChainID() }
-func (b *adapterBridge) Currency() string   { return b.inner.Currency() }
+func (b *adapterBridge) ChainID() string  { return b.inner.ChainID() }
+func (b *adapterBridge) Currency() string { return b.inner.Currency() }
 
 func (b *adapterBridge) ConstructEscrow(params escrow.EscrowConstructParams) (*escrow.UnsignedTx, error) {
 	ap := adapter.EscrowParams{

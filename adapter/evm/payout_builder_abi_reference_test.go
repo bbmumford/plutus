@@ -171,14 +171,14 @@ func TestEncodeAggregate3Value_MatchesReferenceABI(t *testing.T) {
 	ref.Write(word32(2))                                                                  // array length
 	// array body: head[0] = N*32 = 64, head[1] = 64 + tupleSize(=160) = 224
 	const tupleSize = 5 * 32
-	ref.Write(word32(2 * 32))              // head[0] = 0x40
-	ref.Write(word32(2*32 + tupleSize))    // head[1] = 0xe0
+	ref.Write(word32(2 * 32))           // head[0] = 0x40
+	ref.Write(word32(2*32 + tupleSize)) // head[1] = 0xe0
 	// tuple 0
 	ref.Write(addrWord(t, "0x1111111111111111111111111111111111111111"))
-	ref.Write(word32(0))                   // allowFailure = false
-	ref.Write(word32Big(big.NewInt(1)))    // value = 1
-	ref.Write(word32(0x80))                // bytes offset within tuple (= 4*32)
-	ref.Write(word32(0))                   // bytes length = 0
+	ref.Write(word32(0))                // allowFailure = false
+	ref.Write(word32Big(big.NewInt(1))) // value = 1
+	ref.Write(word32(0x80))             // bytes offset within tuple (= 4*32)
+	ref.Write(word32(0))                // bytes length = 0
 	// tuple 1
 	ref.Write(addrWord(t, "0x2222222222222222222222222222222222222222"))
 	ref.Write(word32(0))
@@ -251,9 +251,9 @@ func TestEncodeAggregate3ERC20_MatchesReferenceABI(t *testing.T) {
 	ref.Write(referenceKeccakSelector("aggregate3((address,bool,bytes)[])")) // 4
 	ref.Write(word32(0x20))
 	ref.Write(word32(2))
-	const tupleSize = 3*32 + 32 + 96 // head(3) + bytes-length(1) + padded(96) = 224
-	ref.Write(word32(2 * 32))            // head[0] = 0x40
-	ref.Write(word32(2*32 + tupleSize))  // head[1] = 0x100
+	const tupleSize = 3*32 + 32 + 96    // head(3) + bytes-length(1) + padded(96) = 224
+	ref.Write(word32(2 * 32))           // head[0] = 0x40
+	ref.Write(word32(2*32 + tupleSize)) // head[1] = 0x100
 
 	// selectorTransfer = keccak256("transfer(address,uint256)")[:4] = a9059cbb
 	transferSelector, err := hex.DecodeString("a9059cbb")

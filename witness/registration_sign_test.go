@@ -59,8 +59,8 @@ func TestCanonicalBytes_Deterministic(t *testing.T) {
 
 	// Same logical content, shuffled slice order — must still be identical.
 	r2 := r1
-	r2.ChainIDs = []string{"ethereum", "polygon"}           // reverse order
-	r2.Capabilities = []string{"balance", "tx-confirm"}     // reverse order
+	r2.ChainIDs = []string{"ethereum", "polygon"}       // reverse order
+	r2.Capabilities = []string{"balance", "tx-confirm"} // reverse order
 	// Rebuild the payout map with different insertion order (not observable,
 	// but exercises that the map-key sorting is what produces determinism).
 	r2.PayoutAddresses = map[string]string{

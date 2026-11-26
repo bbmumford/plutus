@@ -65,7 +65,7 @@ type WitnessFeeDistributor struct {
 
 	log Logger
 
-	mu         sync.Mutex
+	mu          sync.Mutex
 	lastRoundAt time.Time
 }
 
@@ -273,13 +273,13 @@ type AttestationSource interface {
 // The distributor aggregates EarningRecords across many orders before
 // computing per-witness payouts.
 type EarningRecord struct {
-	OrderID        string
-	ChainID        string
-	Currency       string
-	WitnessPubKey  string // hex
-	Amount         *big.Int
-	AttestationID  []byte // audit handle (e.g. settlement receipt hash)
-	SettledAt      time.Time
+	OrderID       string
+	ChainID       string
+	Currency      string
+	WitnessPubKey string // hex
+	Amount        *big.Int
+	AttestationID []byte // audit handle (e.g. settlement receipt hash)
+	SettledAt     time.Time
 }
 
 // Payout is the per-witness, per-chain, per-currency payout command that the
@@ -417,12 +417,12 @@ func (d *WitnessFeeDistributor) Window() time.Duration { return d.window }
 //  3. Aggregate by (chainID, currency, witnessPubkey).
 //  4. For each (chainID, currency) group:
 //     a. Check pool balance via PoolProvider (when configured); cap the
-//        total by the pool balance so we never overspend.
+//     total by the pool balance so we never overspend.
 //     b. Resolve each witness's payout address from the WitnessRegistry,
-//        filtering out below-minPayout and missing-address entries to the
-//        Skipped slice (residual stays in the pool for the next round).
+//     filtering out below-minPayout and missing-address entries to the
+//     Skipped slice (residual stays in the pool for the next round).
 //     c. Build a batch payout via the chain's PayoutBuilder, sign via
-//        FeeDistributionSigner, broadcast via FeeDistributionBroadcaster.
+//     FeeDistributionSigner, broadcast via FeeDistributionBroadcaster.
 //  5. Persist the round result.
 func (d *WitnessFeeDistributor) Run(ctx context.Context, windowStart, windowEnd time.Time) (*DistributionRoundResult, error) {
 	if windowEnd.Before(windowStart) {

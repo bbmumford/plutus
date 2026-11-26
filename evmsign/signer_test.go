@@ -18,10 +18,10 @@ func TestRLPBytes_EncodingMatchesSpec(t *testing.T) {
 		in   []byte
 		want string
 	}{
-		{nil, "80"},          // empty string → 0x80
-		{[]byte{0x00}, "00"}, // single byte < 0x80
-		{[]byte{0x7f}, "7f"}, // single byte < 0x80
-		{[]byte{0x80}, "8180"}, // single byte >= 0x80 → 0x81+byte
+		{nil, "80"},                            // empty string → 0x80
+		{[]byte{0x00}, "00"},                   // single byte < 0x80
+		{[]byte{0x7f}, "7f"},                   // single byte < 0x80
+		{[]byte{0x80}, "8180"},                 // single byte >= 0x80 → 0x81+byte
 		{[]byte{0x01, 0x02, 0x03}, "83010203"}, // len 3
 	}
 	for _, tc := range cases {

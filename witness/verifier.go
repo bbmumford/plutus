@@ -44,9 +44,9 @@ type attestRequest struct {
 
 // attestResponse is the wire format for an attestation response.
 type attestResponse struct {
-	RequestID   string                    `json:"requestId"`
-	Attestation *ChainWitnessAttestation  `json:"attestation"`
-	Error       string                    `json:"error,omitempty"`
+	RequestID   string                   `json:"requestId"`
+	Attestation *ChainWitnessAttestation `json:"attestation"`
+	Error       string                   `json:"error,omitempty"`
 }
 
 // MeshVerifier implements quorum-based blockchain state verification via the
@@ -58,8 +58,8 @@ type MeshVerifier struct {
 	registry *WitnessRegistry
 	detector *CollusionDetector
 
-	mu       sync.Mutex
-	pending  map[string]*pendingRequest // requestID -> pending
+	mu      sync.Mutex
+	pending map[string]*pendingRequest // requestID -> pending
 }
 
 // pendingRequest tracks an in-flight attestation request and its collected

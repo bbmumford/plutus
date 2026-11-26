@@ -11,12 +11,12 @@ import (
 // BPS constants and hard caps. Exported so adapters (e.g. wallet/signer_btc.go)
 // can reference the canonical caps without re-declaring them.
 const (
-	BPSBase            = 10000
+	BPSBase             = 10000
 	MaintainerFeeBPSCap = 500  // 5%
-	WitnessBPSCap      = 100  // 1%
-	ServiceProvBPSCap  = 200  // 2%
-	ArbitratorBPSCap   = 300  // 3%
-	CombinedBPSCap     = 1000 // 10%
+	WitnessBPSCap       = 100  // 1%
+	ServiceProvBPSCap   = 200  // 2%
+	ArbitratorBPSCap    = 300  // 3%
+	CombinedBPSCap      = 1000 // 10%
 
 	// Unexported aliases for backwards-compat within this package.
 	bpsBase           = BPSBase

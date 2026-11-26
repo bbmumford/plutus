@@ -76,8 +76,8 @@ func TestSignSettlement_BelowPRCMinimum(t *testing.T) {
 	// Build a tx & fees where maintainer fee is too low (50 < 100 BPS of 10000).
 	tx := &adapter.UnsignedTx{Payload: []byte("settle"), ChainID: "ethereum", Amount: big.NewInt(10_000)}
 	expected := adapter.FeeBreakdown{
-		Total:         big.NewInt(10_000),
-		MaintainerFee: big.NewInt(50),
+		Total:          big.NewInt(10_000),
+		MaintainerFee:  big.NewInt(50),
 		SellerProceeds: big.NewInt(9_950),
 	}
 	if err := verifyFeesAgainstPRC(tx, expected, prcData); err == nil {

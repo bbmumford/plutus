@@ -55,8 +55,8 @@ type RotateConfig struct {
 
 // RotateResult contains the outcome of a key rotation.
 type RotateResult struct {
-	Cert       *RotationCert  `json:"cert"`
-	NewKey     *MaintainerKey `json:"newKey"`
+	Cert       *RotationCert      `json:"cert"`
+	NewKey     *MaintainerKey     `json:"newKey"`
 	NewPrivKey ed25519.PrivateKey `json:"-"`
 }
 
@@ -70,13 +70,14 @@ type RotateResult struct {
 // MaintainerPubKeyHash, which changes the salt, which changes the
 // deterministic PRC address on every chain. After a successful rotation
 // the maintainer MUST:
-//   1. Update _PACKAGES/plutus/canonical/keys/platform-key.pub (embedded
-//      MaintainerPubKeyHash follows from this).
-//   2. Re-run the deploy script against each supported chain with the new
-//      MAINTAINER_PUBKEY_HASH env var to obtain the new predicted address.
-//   3. Paste the new address into canonical.CanonicalPRCAddress and tag a
-//      new release.
-//   4. Re-run the PRC certification ceremony for each new deployment.
+//  1. Update _PACKAGES/plutus/canonical/keys/platform-key.pub (embedded
+//     MaintainerPubKeyHash follows from this).
+//  2. Re-run the deploy script against each supported chain with the new
+//     MAINTAINER_PUBKEY_HASH env var to obtain the new predicted address.
+//  3. Paste the new address into canonical.CanonicalPRCAddress and tag a
+//     new release.
+//  4. Re-run the PRC certification ceremony for each new deployment.
+//
 // Old PRCs are not destroyed; they simply become historical artifacts
 // (they hold no funds — escrows live in per-order contracts, not in the
 // PRC itself). New buyers will deploy escrows that deposit into the NEW
@@ -220,11 +221,11 @@ func AcceptedPubKeyHashes(cert *RotationCert) [][]byte {
 // rotationPayload computes the canonical bytes that are signed.
 func rotationPayload(cert *RotationCert) []byte {
 	payload := struct {
-		OldPubKey     string `json:"oldPubKey"`
-		NewPubKey     string `json:"newPubKey"`
-		GracePeriod   string `json:"gracePeriod"`
-		EffectiveAt   string `json:"effectiveAt"`
-		Reason        string `json:"reason"`
+		OldPubKey   string `json:"oldPubKey"`
+		NewPubKey   string `json:"newPubKey"`
+		GracePeriod string `json:"gracePeriod"`
+		EffectiveAt string `json:"effectiveAt"`
+		Reason      string `json:"reason"`
 	}{
 		OldPubKey:   hex.EncodeToString(cert.OldPubKey),
 		NewPubKey:   hex.EncodeToString(cert.NewPubKey),

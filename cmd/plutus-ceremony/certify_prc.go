@@ -20,6 +20,7 @@ import (
 //	   --addr 0xABCDEF... \
 //	   --tx   0x123456... \
 //	   --block 12345
+//
 // RunCertifyPRC is the exported entry point used by tests.
 func RunCertifyPRC(args []string) error { return runCertifyPRC(args) }
 

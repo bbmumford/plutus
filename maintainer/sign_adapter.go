@@ -34,10 +34,10 @@ type SignAdapterConfig struct {
 
 // SignAdapterResult contains the output of signing an adapter.
 type SignAdapterResult struct {
-	Descriptor    adapter.AdapterDescriptor `json:"descriptor"`
-	AdapterHash   string                    `json:"adapterHash"`
-	SignerPubKey  string                    `json:"signerPubKey"`
-	SignedAt      time.Time                 `json:"signedAt"`
+	Descriptor   adapter.AdapterDescriptor `json:"descriptor"`
+	AdapterHash  string                    `json:"adapterHash"`
+	SignerPubKey string                    `json:"signerPubKey"`
+	SignedAt     time.Time                 `json:"signedAt"`
 }
 
 // SignAdapter signs an adapter binary with the maintainer's Ed25519 private key.
@@ -68,8 +68,8 @@ func SignAdapter(config SignAdapterConfig, privateKey ed25519.PrivateKey) (*Sign
 	adapter.SignDescriptor(&desc, privateKey)
 
 	return &SignAdapterResult{
-		Descriptor:  desc,
-		AdapterHash: fmt.Sprintf("%x", adapterHash),
+		Descriptor:   desc,
+		AdapterHash:  fmt.Sprintf("%x", adapterHash),
 		SignerPubKey: fmt.Sprintf("%x", desc.SignerPubKey),
 		SignedAt:     time.Now().UTC(),
 	}, nil
@@ -161,9 +161,9 @@ func validateSignConfig(config SignAdapterConfig) error {
 // BatchSignResult contains the results of signing multiple adapters.
 type BatchSignResult struct {
 	Results []SignAdapterResult `json:"results"`
-	Total   int                `json:"total"`
-	Failed  int                `json:"failed"`
-	Errors  []string           `json:"errors,omitempty"`
+	Total   int                 `json:"total"`
+	Failed  int                 `json:"failed"`
+	Errors  []string            `json:"errors,omitempty"`
 }
 
 // BatchSign signs multiple adapter configurations with the same key.

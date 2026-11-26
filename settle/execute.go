@@ -23,10 +23,10 @@ type Broadcaster interface {
 
 // SettlementResult contains the outcome of a settlement execution.
 type SettlementResult struct {
-	TxHash         string
-	Fees           adapter.FeeBreakdown
-	EscrowAddr     string
-	ChainID        string
+	TxHash     string
+	Fees       adapter.FeeBreakdown
+	EscrowAddr string
+	ChainID    string
 }
 
 // BalanceAttesterLookup returns the hex-encoded witness pubkeys that should
