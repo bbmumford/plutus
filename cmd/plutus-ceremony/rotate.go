@@ -156,6 +156,6 @@ func runRotatePlatform(args []string) error {
 
 	successf("New platform certificate written to %s", newCertPath)
 	successf("New encrypted platform key written to %s", newKeyPath)
-	fmt.Fprintln(os.Stdout, "Reminder: update canonical/embed.go and redeploy the PRC contracts.")
+	fmt.Println("Reminder: update canonical/embed.go and redeploy the PRC contracts.")
 	return nil
 }

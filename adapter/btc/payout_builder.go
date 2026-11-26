@@ -129,8 +129,7 @@ var _ witness.WindowAwarePayoutBuilder = (*BTCPayoutBuilder)(nil)
 // NewBTCPayoutBuilder constructs a builder from cfg. Returns an error when
 // the network is unknown or UTXOSource is nil.
 func NewBTCPayoutBuilder(cfg BTCPayoutBuilderConfig) (*BTCPayoutBuilder, error) {
-	hrp := "bc"
-	chainID := "bitcoin"
+	var hrp, chainID string
 	switch cfg.Network {
 	case "", "mainnet":
 		hrp = "bc"
@@ -360,9 +359,10 @@ func (b *BTCPayoutBuilder) buildBatchPayout(from string, payouts []witness.Payou
 	// drop the leftover into the mining fee (it's tiny — below 546 sat). The
 	// OP_RETURN output (if any) stays — it carries audit metadata, not funds,
 	// and an attester left out of the window proves its claim against it.
+	// The fee then grows by the dropped change, and the first-pass fee was
+	// already sized for one more output than the tx now has, so the tx still
+	// pays at least the configured fee rate.
 	if change < b.dustThreshold {
-		numOutputs = len(planned) + opReturnCount
-		estVSize = estimatePayoutVSize(numInputs, numOutputs)
 		miningFee = totalInSat - totalOutSat
 		if miningFee < 1 {
 			return empty, fmt.Errorf(

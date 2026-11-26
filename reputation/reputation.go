@@ -156,11 +156,13 @@ func NewReputationService(engine *whisper.Engine, c *cache.DirectoryCache) *Repu
 	tradeStore := &reputationStateStore{service: s, topic: topicRepTrades}
 	reviewStore := &reputationStateStore{service: s, topic: topicRepReviews}
 
-	engine.RegisterTopic(topicRepTrades, whisper.TopicConfig{
+	// whisper refuses these configs only when the topic name is already
+	// registered on the engine, so the errors are not kept.
+	_ = engine.RegisterTopic(topicRepTrades, whisper.TopicConfig{
 		Mode:  whisper.StatefulMerge,
 		Store: tradeStore,
 	})
-	engine.RegisterTopic(topicRepReviews, whisper.TopicConfig{
+	_ = engine.RegisterTopic(topicRepReviews, whisper.TopicConfig{
 		Mode:  whisper.StatefulMerge,
 		Store: reviewStore,
 	})

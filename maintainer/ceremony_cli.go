@@ -324,7 +324,7 @@ func EmitCanonicalSource(rootPubKeyPath, platformCertPath string, deployCertPath
 	// PRC Deployments.
 	sb.WriteString("PRCDeployments: map[string][]byte{\n")
 	for chainID, certBytes := range deployments {
-		sb.WriteString(fmt.Sprintf("\t%q: []byte(`", chainID))
+		fmt.Fprintf(&sb, "\t%q: []byte(`", chainID)
 		sb.Write(certBytes)
 		sb.WriteString("`),\n")
 	}
@@ -333,7 +333,7 @@ func EmitCanonicalSource(rootPubKeyPath, platformCertPath string, deployCertPath
 	// Checkpoints.
 	sb.WriteString("Checkpoints: map[string]string{\n")
 	for chainID, txHash := range checkpoints {
-		sb.WriteString(fmt.Sprintf("\t%q: %q,\n", chainID, txHash))
+		fmt.Fprintf(&sb, "\t%q: %q,\n", chainID, txHash)
 	}
 	sb.WriteString("},\n")
 
@@ -354,7 +354,7 @@ func emitByteSlice(sb *strings.Builder, data []byte) {
 		if i%8 == 0 {
 			sb.WriteString("\t")
 		}
-		sb.WriteString(fmt.Sprintf("0x%02x, ", b))
+		fmt.Fprintf(sb, "0x%02x, ", b)
 		if i%8 == 7 {
 			sb.WriteString("\n")
 		}

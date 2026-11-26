@@ -237,11 +237,9 @@ func BuildReleaseTx(params BuildReleaseTxParams) (*MsgTx, error) {
 	// Handle change. The change output carries the dust difference between
 	// the estimated mining fee and the true mining fee; for a pure pass-
 	// through release there typically is none because recipient absorbs it.
-	// We leave change support here for future split-funding cases.
-	if params.Payouts.ChangeAddr != "" {
-		// No change in simple release — all funds are distributed exactly.
-		// Placeholder for future multi-input selection.
-	}
+	// A release distributes the escrow exactly, so params.Payouts.ChangeAddr
+	// gets no output here; a split-funding release with several inputs would
+	// pay its change there.
 
 	// Build the tx.
 	tx := NewMsgTx(2)

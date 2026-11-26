@@ -134,7 +134,7 @@ func resolvePath(dir, p string) string {
 
 // successf prints a success line prefixed with a check glyph.
 func successf(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stdout, "OK: "+format+"\n", args...)
+	fmt.Printf("OK: "+format+"\n", args...)
 }
 
 // splitCSV returns the non-empty whitespace-trimmed comma-separated values.

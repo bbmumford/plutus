@@ -112,8 +112,7 @@ func NewBTCAdapter(cfg BTCAdapterConfig) (*BTCAdapter, error) {
 		return nil, errors.New("btc: transport is nil")
 	}
 
-	hrp := "bc"
-	chainID := btcChainID
+	var hrp, chainID string
 	switch cfg.Network {
 	case "", "mainnet":
 		hrp = "bc"

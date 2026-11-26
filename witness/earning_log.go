@@ -231,7 +231,8 @@ func (l *EarningLog) CollectEarnings(
 		}
 		return nil, fmt.Errorf("witness/earning_log: open for read: %w", err)
 	}
-	defer f.Close()
+	// Opened only for reading: a close has nothing to flush.
+	defer func() { _ = f.Close() }()
 
 	type groupKey struct {
 		chainID  string

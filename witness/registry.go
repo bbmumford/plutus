@@ -314,7 +314,7 @@ func (r *WitnessRegistry) merge(reg *WitnessRegistration) error {
 	if haveExisting && !reg.RegisteredAt.After(existing.RegisteredAt) {
 		return nil
 	}
-	if !(haveExisting && reputationOnlyUpdate(existing, reg)) {
+	if !haveExisting || !reputationOnlyUpdate(existing, reg) {
 		if err := reg.Verify(); err != nil {
 			return fmt.Errorf("witness: the registration's signature does not verify: %w", err)
 		}

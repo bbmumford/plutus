@@ -257,7 +257,8 @@ func (b *fileDistributionBackend) Replay(fn func(entry distributionLogEntry) err
 		}
 		return fmt.Errorf("open for replay: %w", err)
 	}
-	defer f.Close()
+	// Opened only for reading: a close has nothing to flush.
+	defer func() { _ = f.Close() }()
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	for scanner.Scan() {

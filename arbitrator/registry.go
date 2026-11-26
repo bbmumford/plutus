@@ -128,8 +128,10 @@ func NewArbitratorRegistry(engine *whisper.Engine, c *cache.DirectoryCache) *Arb
 	}
 
 	// Register the StatefulMerge topic before subscribing so that
-	// delta-sync and Apply work correctly for arbitrator records.
-	engine.RegisterTopic(topicArbitrators, whisper.TopicConfig{
+	// delta-sync and Apply work correctly for arbitrator records. whisper
+	// refuses this config only when the topic name is already registered on
+	// the engine, so the error is not kept.
+	_ = engine.RegisterTopic(topicArbitrators, whisper.TopicConfig{
 		Mode:  whisper.StatefulMerge,
 		Store: &arbitratorStateStore{cache: c, registry: r},
 	})

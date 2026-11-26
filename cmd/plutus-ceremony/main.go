@@ -24,7 +24,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 )
 
 // subcommand describes one of the top-level plutus-ceremony verbs.
@@ -72,16 +74,21 @@ func main() {
 
 // printTopLevelUsage prints the top-level help message.
 func printTopLevelUsage(w *os.File) {
-	fmt.Fprintln(w, "plutus-ceremony — Plutus trust-chain key ceremony tool")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Usage: plutus-ceremony <command> [flags]")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Commands:")
+	var b strings.Builder
+	b.WriteString("plutus-ceremony — Plutus trust-chain key ceremony tool\n\n")
+	b.WriteString("Usage: plutus-ceremony <command> [flags]\n\n")
+	b.WriteString("Commands:\n")
 	for _, sc := range subcommands {
-		fmt.Fprintf(w, "  %-16s %s\n", sc.name, sc.desc)
+		fmt.Fprintf(&b, "  %-16s %s\n", sc.name, sc.desc)
 	}
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Run 'plutus-ceremony <command> --help' for per-command flags.")
+	b.WriteString("\nRun 'plutus-ceremony <command> --help' for per-command flags.\n")
+	writeUsage(w, b.String())
+}
+
+// writeUsage writes a usage text to w. A usage text the terminal cannot take
+// has nowhere else to go, so the write error is not kept.
+func writeUsage(w io.Writer, text string) {
+	_, _ = io.WriteString(w, text)
 }
 
 // newFlagSet returns a flag.FlagSet that writes usage errors to stderr and
@@ -89,8 +96,7 @@ func printTopLevelUsage(w *os.File) {
 func newFlagSet(name, desc string) *flag.FlagSet {
 	fs := flag.NewFlagSet("plutus-ceremony "+name, flag.ExitOnError)
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "%s — %s\n\n", fs.Name(), desc)
-		fmt.Fprintf(fs.Output(), "Usage: %s [flags]\n\nFlags:\n", fs.Name())
+		writeUsage(fs.Output(), fmt.Sprintf("%s — %s\n\nUsage: %s [flags]\n\nFlags:\n", fs.Name(), desc, fs.Name()))
 		fs.PrintDefaults()
 	}
 	return fs

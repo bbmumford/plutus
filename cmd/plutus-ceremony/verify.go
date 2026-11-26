@@ -153,7 +153,7 @@ func verifyDeploymentCert(path string) error {
 	}
 	successf("Deployment cert %s format OK (chain=%s, addr=%s, tx=%s, block=%d)",
 		path, cert.ChainID, cert.PRCAddress, cert.DeployTxHash, cert.BlockNumber)
-	fmt.Fprintln(os.Stdout, "Note: pass the matching platform.cert to verify the signature cryptographically.")
+	fmt.Println("Note: pass the matching platform.cert to verify the signature cryptographically.")
 	return nil
 }
 

@@ -125,7 +125,9 @@ func (p *EsploraBalanceProvider) getRaw(ctx context.Context, url string) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	// The body is read whole below or its read error returned; a close error
+	// after that changes nothing the caller gets.
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

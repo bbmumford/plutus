@@ -436,7 +436,7 @@ func buildCanonicalSnippet(hash []byte) string {
 		if i%8 == 0 {
 			sb.WriteString("\t")
 		}
-		sb.WriteString(fmt.Sprintf("0x%02x, ", b))
+		fmt.Fprintf(&sb, "0x%02x, ", b)
 		if i%8 == 7 {
 			sb.WriteString("\n")
 		}
