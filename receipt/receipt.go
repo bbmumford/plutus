@@ -52,6 +52,27 @@ func receiptDigest(r *ServiceReceipt) []byte {
 	return h.Sum(nil)
 }
 
+// checkFields refuses a receipt whose signed fields cannot be told apart in
+// receiptDigest: the provider key, the buyer nonce and the content hash are
+// written back to back with no length between them, so each must have its one
+// fixed size, or a byte moved from one field to its neighbour would leave the
+// digest, and so the signature, unchanged.
+func checkFields(r *ServiceReceipt) error {
+	if len(r.ProviderPubKey) != ed25519.PublicKeySize {
+		return fmt.Errorf("receipt: invalid provider public key size %d", len(r.ProviderPubKey))
+	}
+	if len(r.BuyerNonce) != NonceSize {
+		return fmt.Errorf("receipt: buyer nonce must be %d bytes, got %d", NonceSize, len(r.BuyerNonce))
+	}
+	if r.ServiceType == "" {
+		return fmt.Errorf("receipt: service type is required")
+	}
+	if len(r.ContentHash) != sha256.Size {
+		return fmt.Errorf("receipt: content hash must be %d bytes, got %d", sha256.Size, len(r.ContentHash))
+	}
+	return nil
+}
+
 // SignReceipt signs the receipt with the provider's Ed25519 private key.
 // The signature covers the SHA-256 digest of all content fields.
 // The Signature field on the receipt is populated in-place.
@@ -59,17 +80,8 @@ func SignReceipt(r *ServiceReceipt, privateKey ed25519.PrivateKey) error {
 	if len(privateKey) != ed25519.PrivateKeySize {
 		return fmt.Errorf("receipt: invalid private key size %d", len(privateKey))
 	}
-	if len(r.ProviderPubKey) != ed25519.PublicKeySize {
-		return fmt.Errorf("receipt: invalid provider public key size %d", len(r.ProviderPubKey))
-	}
-	if len(r.BuyerNonce) == 0 {
-		return fmt.Errorf("receipt: buyer nonce is required")
-	}
-	if r.ServiceType == "" {
-		return fmt.Errorf("receipt: service type is required")
-	}
-	if len(r.ContentHash) == 0 {
-		return fmt.Errorf("receipt: content hash is required")
+	if err := checkFields(r); err != nil {
+		return err
 	}
 	if r.Timestamp.IsZero() {
 		return fmt.Errorf("receipt: timestamp is required")
@@ -83,20 +95,11 @@ func SignReceipt(r *ServiceReceipt, privateKey ed25519.PrivateKey) error {
 // VerifyReceipt checks that the receipt's signature is valid for its content
 // fields and was produced by the declared ProviderPubKey.
 func VerifyReceipt(r *ServiceReceipt) (bool, error) {
-	if len(r.ProviderPubKey) != ed25519.PublicKeySize {
-		return false, fmt.Errorf("receipt: invalid provider public key size %d", len(r.ProviderPubKey))
-	}
 	if len(r.Signature) != ed25519.SignatureSize {
 		return false, fmt.Errorf("receipt: invalid signature size %d", len(r.Signature))
 	}
-	if len(r.BuyerNonce) == 0 {
-		return false, fmt.Errorf("receipt: buyer nonce is required for verification")
-	}
-	if r.ServiceType == "" {
-		return false, fmt.Errorf("receipt: service type is required for verification")
-	}
-	if len(r.ContentHash) == 0 {
-		return false, fmt.Errorf("receipt: content hash is required for verification")
+	if err := checkFields(r); err != nil {
+		return false, err
 	}
 
 	digest := receiptDigest(r)
