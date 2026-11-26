@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/bbmumford/plutus/adapter"
@@ -206,8 +207,8 @@ func (e *SettlementExecutor) Execute(
 	observability.GossipBroadcastCount().Add(ctx, 1)
 	observability.SettlementCount().Add(ctx, 1,
 		observability.AttrSet(attribute.String(observability.AttrChainID, currAdapter.ChainID())))
-	if fees.Total != nil && fees.Total.IsInt64() {
-		observability.SettlementFeeTotal().Record(ctx, fees.Total.Int64())
+	if total := feeTotal(fees); total.IsInt64() {
+		observability.SettlementFeeTotal().Record(ctx, total.Int64())
 	}
 	span.SetAttributes(attribute.String(observability.AttrTxHash, txHash))
 
@@ -331,4 +332,18 @@ func (e *SettlementExecutor) ExecuteWithRuling(
 		EscrowAddr: escrowAddr,
 		ChainID:    currAdapter.ChainID(),
 	}, nil
+}
+
+// feeTotal is what a settlement pays out in fees: the maintainer, service
+// provider, arbitrator and witness fees, without the seller's proceeds. The
+// SettlementFeeTotal histogram records it; fees.Total is the whole escrow
+// amount, proceeds included.
+func feeTotal(fees adapter.FeeBreakdown) *big.Int {
+	sum := new(big.Int)
+	for _, f := range []*big.Int{fees.MaintainerFee, fees.ServiceProviderFee, fees.ArbitratorFee, fees.WitnessFee} {
+		if f != nil {
+			sum.Add(sum, f)
+		}
+	}
+	return sum
 }

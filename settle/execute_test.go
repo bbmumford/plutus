@@ -7,8 +7,13 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/bbmumford/plutus/adapter"
 )
@@ -322,5 +327,76 @@ func TestSettlementExecutor_RulingPercentsValidation(t *testing.T) {
 		adapter.FeeOptions{MaintainerBPS: 100})
 	if err == nil {
 		t.Fatal("expected ruling percent error")
+	}
+}
+
+var (
+	meterReaderOnce sync.Once
+	meterReader     *sdkmetric.ManualReader
+)
+
+// settlementMeterReader installs, once per test binary, a metric provider whose
+// reader the tests collect from; the observability package's instruments,
+// made from the global meter, report through it from then on.
+func settlementMeterReader() *sdkmetric.ManualReader {
+	meterReaderOnce.Do(func() {
+		meterReader = sdkmetric.NewManualReader()
+		otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(meterReader)))
+	})
+	return meterReader
+}
+
+// feeTotalSum collects the reader and returns the plutus.settlement.fee_total
+// histogram's running sum (0 before anything was recorded).
+func feeTotalSum(t *testing.T, r *sdkmetric.ManualReader) int64 {
+	t.Helper()
+	var collected metricdata.ResourceMetrics
+	if err := r.Collect(context.Background(), &collected); err != nil {
+		t.Fatalf("collect metrics: %v", err)
+	}
+	var sum int64
+	for _, sm := range collected.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "plutus.settlement.fee_total" {
+				continue
+			}
+			h, ok := m.Data.(metricdata.Histogram[int64])
+			if !ok {
+				t.Fatalf("fee_total is %T, want an int64 histogram", m.Data)
+			}
+			for _, dp := range h.DataPoints {
+				sum += dp.Sum
+			}
+		}
+	}
+	return sum
+}
+
+// The fee-total histogram records what a settlement paid in fees, not the
+// escrow amount: a 10,000 escrow with a 1% maintainer fee and a 1% witness
+// fee records 200. Not parallel, so no other settlement records in between.
+func TestSettlementExecutor_RecordsTheFeesNotTheEscrowAmount(t *testing.T) {
+	reader := settlementMeterReader()
+	before := feeTotalSum(t, reader)
+
+	adapterImpl := &fakeAdapter{
+		chainID: "ethereum",
+		state: &adapter.EscrowState{
+			Address: "0xESCROW",
+			Amount:  big.NewInt(10_000),
+			Status:  adapter.EscrowStatusFunded,
+		},
+	}
+	ex, err := NewSettlementExecutor(NewFeeCalculator(), &fakeSigner{}, &fakeBroadcaster{})
+	if err != nil {
+		t.Fatalf("NewSettlementExecutor: %v", err)
+	}
+	if _, err := ex.Execute(context.Background(), adapterImpl, "0xESCROW",
+		adapter.FeeOptions{MaintainerBPS: 100, HasWitness: true, WitnessBPS: 100}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if got := feeTotalSum(t, reader) - before; got != 200 {
+		t.Fatalf("fee_total recorded %d for this settlement, want 200 (maintainer 100 + witness 100)", got)
 	}
 }
