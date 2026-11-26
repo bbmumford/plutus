@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -299,9 +300,11 @@ func (v *BalanceVerifier) RecentBalanceAttesters(orderContext string) []string {
 }
 
 // SplitWitnessFee produces a per-witness distribution map over the given
-// attesters such that the values sum to witnessFee exactly. The split is equal
-// modulo a remainder-to-first-attester rule so no wei/sats are lost to integer
-// truncation. An attester named more than once is one recipient: the shares
+// attesters such that the values sum to witnessFee exactly. The split is equal,
+// and the remainder integer truncation leaves goes to the attester whose name
+// sorts first, so no wei/sats are lost and every node computes the same split
+// whatever order its attesters arrived in (RecentBalanceAttesters returns them
+// in the order this node received them). An attester named more than once is one recipient: the shares
 // are counted over distinct attesters, because the map holds one entry per
 // attester and a repeated name would otherwise overwrite its own share and
 // leave the rest of the fee unassigned. Returns nil when attesters is empty
@@ -320,6 +323,7 @@ func SplitWitnessFee(witnessFee *big.Int, attesters []string) map[string]*big.In
 		seen[k] = struct{}{}
 		distinct = append(distinct, k)
 	}
+	sort.Strings(distinct)
 	attesters = distinct
 	n := big.NewInt(int64(len(attesters)))
 	share := new(big.Int).Quo(witnessFee, n)

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/bbmumford/plutus/adapter"
 )
@@ -143,8 +144,10 @@ func (c *FeeCalculator) CalculateWithWitnesses(amount *big.Int, opts adapter.Fee
 }
 
 // splitWitnessFeeEqual returns a distribution map over attesters that sums to
-// witnessFee exactly. Equal shares with the remainder going to the first
-// attester so the aggregate total is preserved (no dust lost to truncation).
+// witnessFee exactly. Equal shares, with the remainder going to the attester
+// whose name sorts first, so the aggregate total is preserved (no dust lost to
+// truncation) and every node computes the same breakdown whatever order its
+// attesters arrived in.
 // Duplicate pubkeys in attesters collapse to a single entry — the caller is
 // expected to have already deduped via RecentBalanceAttesters, but we guard.
 func splitWitnessFeeEqual(witnessFee *big.Int, attesters []string) map[string]*big.Int {
@@ -160,6 +163,7 @@ func splitWitnessFeeEqual(witnessFee *big.Int, attesters []string) map[string]*b
 	if len(uniq) == 0 {
 		return nil
 	}
+	sort.Strings(uniq)
 	n := big.NewInt(int64(len(uniq)))
 	share := new(big.Int).Quo(witnessFee, n)
 	remainder := new(big.Int).Sub(witnessFee, new(big.Int).Mul(share, n))

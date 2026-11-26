@@ -176,3 +176,21 @@ func TestBPSMul(t *testing.T) {
 		t.Error("1% of 10000 should be 100")
 	}
 }
+
+// The breakdown's witness split is the same on every node whatever order the
+// attester lookup returned the attesters in: the remainder goes to the
+// attester whose name sorts first.
+func TestCalculateWitnessSplitIsTheSameInEveryOrder(t *testing.T) {
+	want := map[string]int64{"a": 4, "b": 3, "c": 3}
+	for _, order := range [][]string{{"a", "b", "c"}, {"b", "c", "a"}, {"c", "a", "b"}, {"c", "b", "a"}} {
+		got := splitWitnessFeeEqual(big.NewInt(10), order)
+		if len(got) != len(want) {
+			t.Fatalf("order %v: %d recipients, want %d", order, len(got), len(want))
+		}
+		for k, v := range want {
+			if got[k] == nil || got[k].Int64() != v {
+				t.Errorf("order %v: %s gets %v, want %d", order, k, got[k], v)
+			}
+		}
+	}
+}

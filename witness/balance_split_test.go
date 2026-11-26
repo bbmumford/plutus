@@ -27,3 +27,21 @@ func TestSplitWitnessFeeCountsARepeatedAttesterOnce(t *testing.T) {
 		t.Fatalf("one attester named three times: got %v, want c=7", one)
 	}
 }
+
+// Every node splits the same fee among the same attesters identically, whatever
+// order RecentBalanceAttesters returned them in: the remainder goes to the
+// attester whose name sorts first.
+func TestSplitWitnessFeeIsTheSameInEveryOrder(t *testing.T) {
+	want := map[string]int64{"a": 4, "b": 3, "c": 3}
+	for _, order := range [][]string{{"a", "b", "c"}, {"b", "c", "a"}, {"c", "a", "b"}, {"c", "b", "a"}} {
+		got := SplitWitnessFee(big.NewInt(10), order)
+		if len(got) != len(want) {
+			t.Fatalf("order %v: %d recipients, want %d", order, len(got), len(want))
+		}
+		for k, v := range want {
+			if got[k] == nil || got[k].Int64() != v {
+				t.Errorf("order %v: %s gets %v, want %d", order, k, got[k], v)
+			}
+		}
+	}
+}
