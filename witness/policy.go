@@ -23,8 +23,14 @@ type VerificationPolicy struct {
 //	Standard — $10-100:   3 witnesses, 2 agree, 5s
 //	High     — $100-1000: 5 witnesses, 4 agree, 10s
 //	Maximum  — $1000+:    7 witnesses, 6 agree, 15s
+//
+// A value that is negative or not a number gets the Maximum tier: the value
+// comes from the caller (the JS bridge passes the page's policy level through),
+// and a value no tier can be read from must never buy the one-witness tier.
 func PolicyForValue(usdValue float64) VerificationPolicy {
 	switch {
+	case !(usdValue >= 0):
+		return maximumPolicy
 	case usdValue < 10:
 		return VerificationPolicy{
 			MinWitnesses: 1,
@@ -45,13 +51,17 @@ func PolicyForValue(usdValue float64) VerificationPolicy {
 			RequireMerkleProof: true,
 		}
 	default:
-		return VerificationPolicy{
-			MinWitnesses:       7,
-			MinAgreement:       6,
-			Timeout:            15 * time.Second,
-			RequireMerkleProof: true,
-		}
+		return maximumPolicy
 	}
+}
+
+// maximumPolicy is the strictest tier, for $1000 and above and for any value
+// PolicyForValue cannot read.
+var maximumPolicy = VerificationPolicy{
+	MinWitnesses:       7,
+	MinAgreement:       6,
+	Timeout:            15 * time.Second,
+	RequireMerkleProof: true,
 }
 
 // BalancePolicy is the default quorum policy for witness-mesh balance queries.

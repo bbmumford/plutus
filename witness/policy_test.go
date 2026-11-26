@@ -4,6 +4,7 @@
 package witness
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -57,5 +58,17 @@ func TestPolicyForValue_Monotonic(t *testing.T) {
 			t.Errorf("policy non-monotonic at value=%v: %d < prev %d", v, p.MinWitnesses, last)
 		}
 		last = p.MinWitnesses
+	}
+}
+
+// A value no tier can be read from (negative, NaN, negative infinity) gets the
+// strictest tier, never the one-witness Quick tier.
+func TestPolicyForValue_UnreadableValueGetsTheMaximumTier(t *testing.T) {
+	t.Parallel()
+	for _, v := range []float64{-0.01, -1, -5000, math.Inf(-1), math.NaN()} {
+		p := PolicyForValue(v)
+		if p.MinWitnesses != 7 || p.MinAgreement != 6 || p.Timeout != 15*time.Second || !p.RequireMerkleProof {
+			t.Errorf("value %v: got %+v, want the Maximum tier (7 witnesses, 6 agree, 15s, Merkle proofs)", v, p)
+		}
 	}
 }
