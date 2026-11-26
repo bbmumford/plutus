@@ -3,7 +3,7 @@ module github.com/bbmumford/plutus
 go 1.25.0
 
 require (
-	github.com/bbmumford/ledger v0.0.1
+	github.com/bbmumford/ledger v0.0.21
 	github.com/bbmumford/ratelimit v0.1.0
 	github.com/bbmumford/whisper v0.0.19
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
@@ -29,7 +29,7 @@ require (
 
 require (
 	github.com/aead/siphash v1.0.1 // indirect
-	github.com/bbmumford/diststore v0.0.1
+	github.com/bbmumford/diststore v0.1.0
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
@@ -74,11 +74,3 @@ require (
 	google.golang.org/grpc v1.69.0-dev // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/ORBTR/aether v0.0.1 => ../aether
-
-replace github.com/bbmumford/whisper v0.0.1 => ../whisper
-
-replace github.com/bbmumford/ledger v0.0.1 => ../ledger
-
-replace github.com/bbmumford/diststore v0.0.1 => ../diststore
