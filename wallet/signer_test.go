@@ -4,10 +4,8 @@
 package wallet
 
 import (
-	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -40,19 +38,6 @@ func TestSigner_SignEscrowFunding_EmptyPayload(t *testing.T) {
 	if _, err := s.SignEscrowFunding(nil); err == nil {
 		t.Error("expected error for nil tx")
 	}
-}
-
-// stubVerifier provides fixed PRC data for signer tests.
-type stubVerifier struct{ data []byte }
-
-func (s *stubVerifier) AttestContractState(_ context.Context, _, _ string) ([]byte, error) {
-	if s.data == nil {
-		return nil, errors.New("no data")
-	}
-	return s.data, nil
-}
-func (s *stubVerifier) AttestEscrowState(_ context.Context, _, _ string) (*EscrowSnapshot, error) {
-	return nil, errors.New("not used")
 }
 
 func TestSignSettlement_BelowPRCMinimum(t *testing.T) {

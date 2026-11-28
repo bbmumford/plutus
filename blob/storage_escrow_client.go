@@ -71,16 +71,12 @@ import (
 // | respond(bytes32)                | 0x1982f1d3 |
 // | withdrawBond()                  | 0x66eb9cec |
 // | bondReplicator()                | 0x9edb6fc1 |
-// | refundUnbonded()                | 0xff9a717c |
-// | releaseWeekly()                 | 0x7289c3ad |
 var (
 	selOpenChallenge   = mustKeccakSelector("openChallenge(bytes32,bytes32)")
 	selExpireChallenge = mustKeccakSelector("expireChallenge()")
 	selRespond         = mustKeccakSelector("respond(bytes32)")
 	selWithdrawBond    = mustKeccakSelector("withdrawBond()")
 	selBondReplicator  = mustKeccakSelector("bondReplicator()")
-	selRefundUnbonded  = mustKeccakSelector("refundUnbonded()")
-	selReleaseWeekly   = mustKeccakSelector("releaseWeekly()")
 )
 
 // ErrNoEscrowForCID is returned when the high-level per-CID methods are

@@ -73,16 +73,6 @@ func storeAdapterTrust(key [32]byte, err error) {
 	}
 }
 
-// resetAdapterTrustCache clears the LRU. Intended for tests that mutate
-// the canonical trust chain — the cached error results are no longer
-// meaningful against the new chain state.
-func resetAdapterTrustCache() {
-	adapterTrustCacheMu.Lock()
-	defer adapterTrustCacheMu.Unlock()
-	adapterTrustCacheOrder = list.New()
-	adapterTrustCacheMap = make(map[[32]byte]*list.Element, adapterTrustCacheSize)
-}
-
 // adapterTrustCacheKeyWithPRC derives the cache key for a descriptor.
 // Mixes in every signed field plus the caller-supplied maintainer key
 // hash so that (a) tampering with any signed field yields a different
@@ -132,8 +122,7 @@ func ValidateAdapter(desc *AdapterDescriptor, prcPubKeyHash []byte) error {
 }
 
 // validateAdapterUncached is the full-fat verification path. Split out so
-// the cached wrapper is a thin pre-check + memoize, and tests that need
-// the uncached behaviour can call resetAdapterTrustCache between calls.
+// the cached wrapper is a thin pre-check + memoize.
 func validateAdapterUncached(desc *AdapterDescriptor, prcPubKeyHash []byte) error {
 	// 1. Verify the signer public key is present and valid length.
 	if len(desc.SignerPubKey) != ed25519.PublicKeySize {

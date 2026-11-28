@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -62,9 +61,6 @@ func (e *RPCError) Error() string {
 type EVMClient struct {
 	transport MeshTransport
 	chainID   string
-
-	mu    sync.Mutex
-	reqID uint64
 }
 
 // NewEVMClient creates a new EVM client for the given chain, using the
@@ -85,15 +81,6 @@ func NewEVMClient(transport MeshTransport, chainID string) (*EVMClient, error) {
 // ChainID returns the chain identifier.
 func (c *EVMClient) ChainID() string {
 	return c.chainID
-}
-
-// nextID returns a monotonically increasing request ID.
-func (c *EVMClient) nextID() uint64 {
-	c.mu.Lock()
-	c.reqID++
-	id := c.reqID
-	c.mu.Unlock()
-	return id
 }
 
 // call executes a JSON-RPC method via the mesh transport.

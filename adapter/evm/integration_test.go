@@ -90,12 +90,6 @@ func padHex32(n *big.Int) json.RawMessage {
 	return json.RawMessage("\"0x" + hex.EncodeToString(b) + "\"")
 }
 
-// addrHex returns a JSON-wrapped 32-byte left-padded hex address.
-func addrHex(addr string) json.RawMessage {
-	b := padAddress(addr)
-	return json.RawMessage("\"0x" + hex.EncodeToString(b) + "\"")
-}
-
 // --- EVMClient tests ---
 
 func TestNewEVMClient_Validation(t *testing.T) {

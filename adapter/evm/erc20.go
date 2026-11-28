@@ -27,10 +27,6 @@ var (
 	selectorTransferFrom = mustDecodeHex("23b872dd")
 	// decimals() => 0x313ce567
 	selectorDecimals = mustDecodeHex("313ce567")
-	// symbol() => 0x95d89b41
-	selectorSymbol = mustDecodeHex("95d89b41")
-	// name() => 0x06fdde03
-	selectorName = mustDecodeHex("06fdde03")
 	// totalSupply() => 0x18160ddd
 	selectorTotalSupply = mustDecodeHex("18160ddd")
 )
