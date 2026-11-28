@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -58,14 +59,32 @@ type jsBridge struct {
 	txLog []txRecord
 }
 
-// walletState holds per-wallet state on the WASM side.
+// walletState holds per-wallet state on the WASM side. It holds no
+// mnemonic: createWallet hands the mnemonic to the page once, and the only
+// copy the bridge keeps is exportCopy, sealed under the page's passphrase.
 type walletState struct {
-	mnemonic    string
 	seed        []byte
 	identityKey ed25519.PrivateKey
 	signer      *wallet.Signer
 	accounts    map[string][]wallet.WalletAccount // chainID -> accounts
+
+	// exportCopy is the mnemonic sealed under the exportPassphrase the page
+	// passed to createWallet (wallet.SealMnemonic), read only by
+	// exportIdentity; nil when the page passed none, and then exportIdentity
+	// has nothing to return.
+	exportCopy *wallet.SealedMnemonic
 }
+
+// createdWallet is createWallet's answer: the new wallet's handle and its
+// mnemonic, handed to the page this once.
+type createdWallet struct {
+	Handle   int64  `json:"handle"`
+	Mnemonic string `json:"mnemonic"`
+}
+
+// errNoExportCopy is exportIdentity's answer for a wallet created without an
+// export passphrase.
+var errNoExportCopy = errors.New("exportIdentity: the wallet was created without an export passphrase, so no copy of its mnemonic is kept")
 
 // escrowState holds per-escrow state on the WASM side.
 type escrowState struct {
@@ -117,55 +136,77 @@ func promiseWrapper(fn func() (interface{}, error)) js.Value {
 	return js.Global().Get("Promise").New(handler)
 }
 
-// createWallet creates a new wallet from config. Config may contain "mnemonic"
-// to restore from existing, or will generate a new one.
-// Plutus.createWallet(config) -> handle
+// createWallet creates a new wallet from config. Config may contain
+// "mnemonic" to restore from existing, or will generate a new one, and
+// "exportPassphrase", under which the bridge keeps the one sealed copy of the
+// mnemonic that exportIdentity can hand back. The mnemonic is returned here,
+// once, for the page to show for backup; the bridge keeps no other copy.
+// Plutus.createWallet(config) -> '{"handle": N, "mnemonic": "..."}'
 func (b *jsBridge) createWallet(this js.Value, args []js.Value) interface{} {
 	return promiseWrapper(func() (interface{}, error) {
-		var mnemonic string
-		var err error
-
+		var mnemonic, passphrase string
 		if len(args) > 0 && !args[0].IsNull() && !args[0].IsUndefined() {
-			mnemonicVal := args[0].Get("mnemonic")
-			if !mnemonicVal.IsUndefined() && !mnemonicVal.IsNull() {
-				mnemonic = mnemonicVal.String()
+			if v := args[0].Get("mnemonic"); v.Type() == js.TypeString {
+				mnemonic = v.String()
+			}
+			if v := args[0].Get("exportPassphrase"); v.Type() == js.TypeString {
+				passphrase = v.String()
 			}
 		}
-
-		if mnemonic == "" {
-			mnemonic, err = wallet.GenerateMnemonic()
-			if err != nil {
-				return nil, fmt.Errorf("createWallet: %w", err)
-			}
-		}
-
-		seed, err := wallet.MnemonicToSeed(mnemonic, "")
+		created, err := b.newWallet(mnemonic, passphrase)
 		if err != nil {
 			return nil, fmt.Errorf("createWallet: %w", err)
 		}
-
-		identityKey, err := wallet.DeriveProtocolIdentity(seed)
-		if err != nil {
-			return nil, fmt.Errorf("createWallet: %w", err)
-		}
-
-		prcResolver := wallet.NewPRCResolver(nil, nil)
-		signer := wallet.NewSigner(identityKey, prcResolver)
-
-		handle := b.nextWalletHandle.Add(1)
-
-		b.mu.Lock()
-		b.wallets[handle] = &walletState{
-			mnemonic:    mnemonic,
-			seed:        seed,
-			identityKey: identityKey,
-			signer:      signer,
-		}
-		b.mu.Unlock()
-
 		b.publishState()
-		return handle, nil
+		return created, nil
 	})
+}
+
+// newWallet derives a wallet from mnemonic (a fresh one when empty) and
+// keeps its keys under a new handle, with the mnemonic sealed under
+// passphrase when one is given. It returns the handle and the mnemonic.
+func (b *jsBridge) newWallet(mnemonic, passphrase string) (createdWallet, error) {
+	var err error
+	if mnemonic == "" {
+		mnemonic, err = wallet.GenerateMnemonic()
+		if err != nil {
+			return createdWallet{}, err
+		}
+	}
+
+	seed, err := wallet.MnemonicToSeed(mnemonic, "")
+	if err != nil {
+		return createdWallet{}, err
+	}
+
+	identityKey, err := wallet.DeriveProtocolIdentity(seed)
+	if err != nil {
+		return createdWallet{}, err
+	}
+
+	var exportCopy *wallet.SealedMnemonic
+	if passphrase != "" {
+		exportCopy, err = wallet.SealMnemonic(mnemonic, []byte(passphrase))
+		if err != nil {
+			return createdWallet{}, err
+		}
+	}
+
+	prcResolver := wallet.NewPRCResolver(nil, nil)
+	signer := wallet.NewSigner(identityKey, prcResolver)
+
+	handle := b.nextWalletHandle.Add(1)
+
+	b.mu.Lock()
+	b.wallets[handle] = &walletState{
+		seed:        seed,
+		identityKey: identityKey,
+		signer:      signer,
+		exportCopy:  exportCopy,
+	}
+	b.mu.Unlock()
+
+	return createdWallet{Handle: handle, Mnemonic: mnemonic}, nil
 }
 
 // walletAddress returns the chain address for a wallet on a specific chain.
@@ -307,24 +348,37 @@ func (b *jsBridge) listAccounts(this js.Value, args []js.Value) interface{} {
 	})
 }
 
-// walletMnemonic returns the mnemonic for a wallet handle.
-// Plutus.walletMnemonic(handle) -> string
-func (b *jsBridge) walletMnemonic(this js.Value, args []js.Value) interface{} {
+// exportIdentity is the one way to read a wallet's mnemonic back from the
+// bridge, and the page calls it only after its own user-confirmation step.
+// It opens the copy sealed under the exportPassphrase given to createWallet,
+// so only that passphrase gets the mnemonic: a wrong one, or a wallet created
+// without one, gets an error and no part of it.
+// Plutus.exportIdentity(handle, passphrase) -> mnemonic
+func (b *jsBridge) exportIdentity(this js.Value, args []js.Value) interface{} {
 	return promiseWrapper(func() (interface{}, error) {
-		if len(args) < 1 {
-			return nil, fmt.Errorf("walletMnemonic: requires handle")
+		if len(args) < 2 || args[1].Type() != js.TypeString {
+			return nil, fmt.Errorf("exportIdentity: requires handle and passphrase")
 		}
-		handle := int64(args[0].Float())
-
-		b.mu.RLock()
-		ws, ok := b.wallets[handle]
-		b.mu.RUnlock()
-		if !ok {
-			return nil, fmt.Errorf("walletMnemonic: unknown handle %d", handle)
-		}
-
-		return ws.mnemonic, nil
+		return b.exportMnemonic(int64(args[0].Float()), args[1].String())
 	})
+}
+
+// exportMnemonic opens handle's sealed mnemonic with passphrase.
+func (b *jsBridge) exportMnemonic(handle int64, passphrase string) (string, error) {
+	b.mu.RLock()
+	ws, ok := b.wallets[handle]
+	b.mu.RUnlock()
+	if !ok {
+		return "", fmt.Errorf("exportIdentity: unknown handle %d", handle)
+	}
+	if ws.exportCopy == nil {
+		return "", errNoExportCopy
+	}
+	mnemonic, err := ws.exportCopy.Open([]byte(passphrase))
+	if err != nil {
+		return "", fmt.Errorf("exportIdentity: %w", err)
+	}
+	return mnemonic, nil
 }
 
 // createEscrow creates an escrow manager bound to a wallet.

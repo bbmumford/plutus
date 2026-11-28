@@ -77,32 +77,51 @@ class PlutusWallet {
   #mnemonic = null;
 
   /**
-   * Create a new wallet with a fresh mnemonic.
-   * @param {Object} [config] - Optional configuration
+   * Create a new wallet with a fresh mnemonic. The bridge returns the
+   * mnemonic this once (read it from `mnemonic` to show it for backup) and
+   * keeps no copy of it, unless config.exportPassphrase is given: then it
+   * keeps one sealed under that passphrase for exportIdentity.
+   * @param {Object} [config] - Optional configuration ({ exportPassphrase })
    * @returns {Promise<PlutusWallet>}
    */
   static async createNew(config) {
     const w = new PlutusWallet();
-    w.#handle = await Plutus.createWallet(config || {});
-    // Mnemonic is not exposed via the public JS API for security.
-    // Use exportIdentity with user confirmation to retrieve it.
-    w.#mnemonic = null;
+    const created = PlutusWallet.#parseCreated(await Plutus.createWallet(config || {}));
+    w.#handle = created.handle;
+    w.#mnemonic = created.mnemonic;
     return w;
   }
 
   /**
    * Restore a wallet from an existing BIP39 mnemonic.
    * @param {string} mnemonic - 24-word BIP39 mnemonic
+   * @param {string} [exportPassphrase] - Keep a copy sealed under it for exportIdentity
    * @returns {Promise<PlutusWallet>}
    */
-  static async createFromMnemonic(mnemonic) {
+  static async createFromMnemonic(mnemonic, exportPassphrase) {
     if (!mnemonic || typeof mnemonic !== 'string') {
       throw new Error('PlutusWallet.createFromMnemonic: mnemonic is required');
     }
     const w = new PlutusWallet();
-    w.#handle = await Plutus.createWallet({ mnemonic });
+    const config = exportPassphrase ? { mnemonic, exportPassphrase } : { mnemonic };
+    w.#handle = PlutusWallet.#parseCreated(await Plutus.createWallet(config)).handle;
     w.#mnemonic = mnemonic;
     return w;
+  }
+
+  /**
+   * Read the mnemonic back from the bridge's copy sealed under the
+   * exportPassphrase the wallet was created with. Call it only after the
+   * page's own user confirmation; a wrong passphrase rejects with nothing.
+   * @param {string} passphrase - The wallet's export passphrase
+   * @returns {Promise<string>}
+   */
+  async exportIdentity(passphrase) {
+    return Plutus.exportIdentity(this.#handle, passphrase);
+  }
+
+  static #parseCreated(raw) {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
   }
 
   /**

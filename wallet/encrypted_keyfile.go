@@ -102,6 +102,13 @@ func parseEncryptedKeyfile(data []byte) (*EncryptedKeyfile, error) {
 // sealPlaintext encrypts plaintext under passphrase, returning a populated
 // EncryptedKeyfile. Generates fresh salt + nonce.
 func sealPlaintext(passphrase, plaintext []byte) (*EncryptedKeyfile, error) {
+	return sealPlaintextAD(passphrase, plaintext, keyfileAD)
+}
+
+// sealPlaintextAD is sealPlaintext with the associated data ad in place of
+// keyfileAD, so another kind of sealed blob (SealMnemonic's) shares the
+// cipher and never opens as a keyfile, nor a keyfile as it.
+func sealPlaintextAD(passphrase, plaintext []byte, ad string) (*EncryptedKeyfile, error) {
 	kf := &EncryptedKeyfile{}
 	if _, err := rand.Read(kf.Salt[:]); err != nil {
 		return nil, fmt.Errorf("plutus/wallet: salt generation failed: %w", err)
@@ -116,19 +123,25 @@ func sealPlaintext(passphrase, plaintext []byte) (*EncryptedKeyfile, error) {
 		return nil, fmt.Errorf("plutus/wallet: AEAD construction failed: %w", err)
 	}
 
-	kf.Ciphertext = aead.Seal(nil, kf.Nonce[:], plaintext, []byte(keyfileAD))
+	kf.Ciphertext = aead.Seal(nil, kf.Nonce[:], plaintext, []byte(ad))
 	return kf, nil
 }
 
 // openCiphertext decrypts the keyfile with passphrase. On AEAD failure
 // (tamper, wrong passphrase) returns ErrBadPassphrase.
 func (k *EncryptedKeyfile) openCiphertext(passphrase []byte) ([]byte, error) {
+	return k.openCiphertextAD(passphrase, keyfileAD)
+}
+
+// openCiphertextAD is openCiphertext for a blob sealed by sealPlaintextAD
+// with the associated data ad.
+func (k *EncryptedKeyfile) openCiphertextAD(passphrase []byte, ad string) ([]byte, error) {
 	key := argon2.IDKey(passphrase, k.Salt[:], argon2TimeV1, argon2MemoryV1, argon2ThreadsV1, argon2KeyLenV1)
 	aead, err := chacha20poly1305.NewX(key)
 	if err != nil {
 		return nil, fmt.Errorf("plutus/wallet: AEAD construction failed: %w", err)
 	}
-	plaintext, err := aead.Open(nil, k.Nonce[:], k.Ciphertext, []byte(keyfileAD))
+	plaintext, err := aead.Open(nil, k.Nonce[:], k.Ciphertext, []byte(ad))
 	if err != nil {
 		return nil, ErrBadPassphrase
 	}

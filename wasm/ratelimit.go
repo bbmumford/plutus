@@ -44,7 +44,8 @@ var pluginMethodCategories = map[string]wasmratelimit.Category{
 	"findArbitrators":   wasmratelimit.CategoryRead,
 
 	// Crypto-gated
-	"createWallet": wasmratelimit.CategoryCryptoGated,
+	"createWallet":   wasmratelimit.CategoryCryptoGated,
+	"exportIdentity": wasmratelimit.CategoryCryptoGated,
 }
 
 // newPlutusRateLimiter builds a rate limiter pre-registered with the Plutus

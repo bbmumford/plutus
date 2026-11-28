@@ -8,6 +8,8 @@ package main
 
 import (
 	"syscall/js"
+
+	"github.com/bbmumford/plutus/wasmratelimit"
 )
 
 func main() {
@@ -16,6 +18,41 @@ func main() {
 	bridge := newJSBridge()
 	limiter := newPlutusRateLimiter()
 
+	registerMethods(plutus, bridge, limiter)
+
+	// Rate-limit configuration hook (called once at startup by JS to raise or
+	// lower the bridge defaults). This call itself is NOT rate-limited.
+	installInitRateLimits(plutus, limiter)
+
+	js.Global().Set("Plutus", plutus)
+
+	// Install a JS dispatcher shim so the marketplace-style single-arg call
+	// Plutus.createAccount("ETH") resolves to createAccountOnChain, while
+	// the three-arg createAccount(handle, chainID, name) flow keeps its
+	// handle-taking semantics. This is done in JS-land via a wrapper that
+	// inspects arguments.
+	shim := js.Global().Get("Function").New(
+		"plutus",
+		`var legacy = plutus.createAccount;
+		 var fresh  = plutus.createAccountOnChain;
+		 plutus.createAccount = function () {
+			if (arguments.length === 1) { return fresh.apply(null, arguments); }
+			return legacy.apply(null, arguments);
+		 };`,
+	)
+	shim.Invoke(plutus)
+
+	// Publish initial state synchronously at module load.
+	bridge.publishState()
+
+	// Block forever to keep the WASM module alive
+	select {}
+}
+
+// registerMethods binds every bridge method the page calls onto the plutus
+// object, each behind its per-method rate limit. exportIdentity is the only
+// method that returns a mnemonic; no method reads one in the clear.
+func registerMethods(plutus js.Value, bridge *jsBridge, limiter *wasmratelimit.Limiter) {
 	// set binds a handler to a method name with per-method rate limiting.
 	set := func(method string, fn func(this js.Value, args []js.Value) interface{}) {
 		plutus.Set(method, js.FuncOf(rateLimited(limiter, method, fn)))
@@ -23,12 +60,10 @@ func main() {
 
 	// Wallet operations
 	set("createWallet", bridge.createWallet)
+	set("exportIdentity", bridge.exportIdentity)
 	set("walletAddress", bridge.walletAddress)
 	set("createAccount", bridge.createAccount)
 	set("listAccounts", bridge.listAccounts)
-	// walletMnemonic intentionally omitted from the public JS API.
-	// Mnemonic export should only happen via an explicit exportIdentity
-	// call that requires user confirmation.
 
 	// Marketplace-facing wallet exports (no-arg / chain-code variants)
 	set("getAccounts", bridge.getAccounts)
@@ -58,32 +93,4 @@ func main() {
 	set("recordReputation", bridge.recordReputation)
 	set("reputationHistory", bridge.reputationHistory)
 	set("findArbitrators", bridge.findArbitrators)
-
-	// Rate-limit configuration hook (called once at startup by JS to raise or
-	// lower the bridge defaults). This call itself is NOT rate-limited.
-	installInitRateLimits(plutus, limiter)
-
-	js.Global().Set("Plutus", plutus)
-
-	// Install a JS dispatcher shim so the marketplace-style single-arg call
-	// Plutus.createAccount("ETH") resolves to createAccountOnChain, while
-	// the three-arg createAccount(handle, chainID, name) flow keeps its
-	// handle-taking semantics. This is done in JS-land via a wrapper that
-	// inspects arguments.
-	shim := js.Global().Get("Function").New(
-		"plutus",
-		`var legacy = plutus.createAccount;
-		 var fresh  = plutus.createAccountOnChain;
-		 plutus.createAccount = function () {
-			if (arguments.length === 1) { return fresh.apply(null, arguments); }
-			return legacy.apply(null, arguments);
-		 };`,
-	)
-	shim.Invoke(plutus)
-
-	// Publish initial state synchronously at module load.
-	bridge.publishState()
-
-	// Block forever to keep the WASM module alive
-	select {}
 }
